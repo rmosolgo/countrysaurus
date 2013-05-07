@@ -3,19 +3,26 @@
 
 ## About literate_ruby.rb
 keep your code:
+
+
   - in "readme.md"
   - tab-indented (not four spaces, sorry)
   - use ```Ruby ... ``` for pretty printing on Github
 
-to run in development: 
-  $ ruby literate_ruby.rb < readme.md
 
+to run in development: 
+```
+  $ ruby literate_ruby.rb < readme.md
+```
 to deploy:
+ 
+```  
   $ # must be a literal tab!
   $ cat readme.md | grep "^	" > app.rb 
   $ bundle install
   $ heroku create
   $ git push heroku master
+```
 
 ```Ruby
 	require 'rubygems'
