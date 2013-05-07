@@ -1,79 +1,10 @@
-CODE ```
-# Country Name Fixer
-
-## Use
-
-### 1. Upload a CSV
-
-- "Not sure how to get a CSV? Click here for picture instructions"
-- User uploads CSV, is verified (by server?)
-
-### 2. Identify your country column
-
-- "I checked your CSV and found these columns, which one has country names in it?"
-
-### 3. Check country matches
-- "Ok, I found these countries, and matched them like this:"
-  - Two columns: value found, recommended value
-  - "Something not right?"
-    - select your own
-    - recommend a fix in the DB
-    
-### 4. Add new country names
-
-- "I can look through and find countries. What fields should I add to your spreadsheet?"
-- Available names:
-  - ISO2
-  - ISO3
-  - COW
-  - UN
-  - AidData Names
-
-### 5. Return original CSV with new names
-
-- "All done -- here ya go"
-- Facebook, Twitter, tips?
-
-
-## Implementation
-
-###  About literate_ruby.rb
-keep your code:
-
-
-  - in "readme.md"
-  - tab-indented (not four spaces, sorry)
-  - use ```Ruby ... ``` for pretty printing on Github
-
-
-to run in development: 
-```
-  $ ruby literate_ruby.rb < readme.md
-```
-to deploy:
- 
-```  
-  $ # must be a literal tab!
-  $ cat readme.md | grep "^	" > app.rb 
-  $ bundle install
-  $ heroku create
-  $ git push heroku master
-```
-
-### Gems 
-```Ruby
 	require 'rubygems'
 	require 'bundler/setup'
 	require 'sinatra'
 	require 'sinatra/namespace'
-
 	require 'thin' # HTTP server
 	require 'haml' # for quick views
 	require 'barista' # for using :coffescript in Haml
-```
-
-Back end in Mongo, for fun:
-```Ruby	
 	# for MongoDB
 	require 'mongo'
 	require 'mongo_mapper'
@@ -85,23 +16,6 @@ Back end in Mongo, for fun:
 	MongoMapper.connection = Mongo::Connection.from_uri mongo_url
 	MongoMapper.database = URI.parse(mongo_url).path.gsub(/^\//, '') #Extracts 'dbname' from the uri
 	# YourModel.ensure_index(:field_name)
-
-```
-
-### Country
-- canonical names: 
-  - OECD, AidData, IMF, COW, UN, ISO2, ISO3
-  - Names in other languages
-- aliases: 
-  - other names?? Other spellings, "The", "Ivory Coast"
-  - ALWAYS DOWNCASE for matches!
-- User-editable -- add to aliases, not canonical names
-- Sends email to me when edited
-
-- __What about a missing country all together?__
-
-
-```Ruby
 	class Country
 		include MongoMapper::Document
 		# If you add a key, add it to the 
@@ -125,10 +39,7 @@ Back end in Mongo, for fun:
 		key :aliases, Array 
 		key :all_aliases, Array
 		timestamps!
-		before_save :remove_duplicate_aliases
 		before_save :combine_fields_to_all_aliases
-		
-
 		@@canonical_keys = [
 			:iso2, :iso3, :name, :iso_numeric, 
 			:aiddata_name, :aiddata_code, 
@@ -136,30 +47,17 @@ Back end in Mongo, for fun:
 			:geonames_id, :oecd_code, :oecd_name, 
 			:cow_numeric, :cow_alpha
 		]
-
-		def self.canonical_keys
-			@@canonical_keys
-		end
-
-		def remove_duplicate_aliases
-			self.aliases = self.aliases.uniq
-		end
-
 		def combine_fields_to_all_aliases
 			new_aliases = []
 			new_aliases += aliases
-
 			@@canonical_keys.each do |key|
 				new_aliases << self.send(key)
 			end
-
 			# a few programatic aliases
 			new_aliases += self.programatic_aliases
-
 			# save unique, downcased names for matching
 			all_aliases = new_aliases.uniq{|a| a.respond_to?(:downcase) ? a.downcase : a}
 		end
-
 		def programatic_aliases
 			downcased_name = name.downcase 
 			new_aliases = []
@@ -170,141 +68,89 @@ Back end in Mongo, for fun:
 				new_aliases << downcased_name.gsub(/saint/, 'st.')
 				new_aliases << downcased_name.gsub(/st\./, 'saint')	
 			end
-
 			# & // and
 			if downcased_name =~ /and/ || downcased_name =~ /&/
 				new_aliases << downcased_name.gsub(/and|&/, 'and')
 				new_aliases << downcased_name.gsub(/and|&/, '&')
 			end			
-
 			# Dem. Rep.
 			if downcased_name =~ /republic/ || downcased_name =~ /rep\./
 				new_aliases << downcased_name.gsub(/republic|rep\./, 'rep')
 				new_aliases << downcased_name.gsub(/republic/, 'rep.')
 				new_aliases << downcased_name.gsub(/rep\./, 'republic')
 			end
-
 			if downcased_name =~ /democratic/ || downcased_name =~ /dem\./
 				new_aliases << downcased_name.gsub(/democratic|dem\./, 'dem')
 				new_aliases << downcased_name.gsub(/democratic/, 'dem.')
 				new_aliases << downcased_name.gsub(/dem\./, 'democratic')				
 			end
-
 			if (downcased_name =~ /democratic/ || downcased_name =~ /dem\./) &&
 					(downcased_name =~ /republic/ || downcased_name =~ /rep\./)
 				new_aliases << downcased_name.gsub(/democratic|dem\./, 'dem').gsub(/republic|rep\./, 'rep')
 				new_aliases << downcased_name.gsub(/democratic/, 'dem.').gsub(/republic/, 'rep.')
 				new_aliases << downcased_name.gsub(/dem\./, 'democratic').gsub(/rep\./, 'republic')
 			end
-
 			new_aliases
 		end	
-
 		def add_alias!(new_alias)
 			unless aliases.include?(new_alias)
 				aliases << new_alias
 				save 
 			end
 		end
-
 		def remove_alias!(bad_alias)
 			aliases.delete(bad_alias)
 			save
 		end
-
-		def serializable_hash(options={})
-			if options == nil
-				options = {}
-			end
-			fields_to_show = @@canonical_keys + [:aliases]
-			super({only: fields_to_show}.merge(options))
+		def serializable_hash(options = {})
+			super({:only => @@canonical_keys}.merge(options))
 		end
-
 	end
-
-```
-
-#### Helpers
-
-```Ruby
 	def returns_json
 		content_type :json
 	end
-	# Uncomment and set ENV HTTP_USERNAME and HTTP_PASSWORD to enable password protection with "protected!"
-	def protected!
-		unless authorized?
-			p "Unauthorized request."
-			response['WWW-Authenticate'] = %(Basic)
-			throw(:halt, [401, "Not authorized\n"])
-		end
-	end
+	# # Uncomment and set ENV HTTP_USERNAME and HTTP_PASSWORD to enable password protection with "protected!"
+	# def protected!
+	# 	unless authorized?
+	# 		p "Unauthorized request."
+	# 		response['WWW-Authenticate'] = %(Basic)
+	# 		throw(:halt, [401, "Not authorized\n"])
+	# 	end
+	# end
 	# AUTH_PAIR = [ENV['HTTP_USERNAME'], ENV['HTTP_PASSWORD']]
-	AUTH_PAIR = ["aiddata", "aiddata"]
-	def authorized?
-		@auth ||=  Rack::Auth::Basic::Request.new(request.env)
-		@auth.provided? && @auth.basic? && @auth.credentials && @auth.credentials == AUTH_PAIR
-	end
-```
-
-#### Routes 
-```Ruby
+	# def authorized?
+	# 	@auth ||=  Rack::Auth::Basic::Request.new(request.env)
+	# 	@auth.provided? && @auth.basic? && @auth.credentials && @auth.credentials == AUTH_PAIR
+	# end
 	get "/" do
 		"Home"
 	end
-
 	get "/standardize" do
 		"Give an alias, I give you the JSON for the country"
 	end
-
+	get "/downloads" do
+		"Download country files"
+	end
 	namespace "/countries" do
 		get do 
-			@countries = Country.all
-			haml :countries
+			Country.all.count
 		end
-
-		get "/json" do 
-			@countries = Country.all
-			returns_json
-			"[#{@countries.map(&:to_json).join(",")}]"
-		end
-
+		
 		namespace "/:iso3" do
 			before do
 				@country = Country.find_by_iso3(params[:iso3]) # or whatever
 			end
-
-			get { haml :country }
-			
+			get { "Country page!"}
+			post "/alias/:new_alias" do
+				@country.add_alias(params[:new_alias])
+				redirect to("/countries/#{@country.iso3}")
+			end
 			get "/json" do
 				returns_json
-				@country.to_json
-			end
-			
-			namespace "/aliases" do
-				get do
-					returns_json 
-					@country.aliases.to_json
-				end
-
-				post do
-					returns_json
-					# post { alias: "your_alias"}
-					@country.add_alias!(params[:alias])
-					@country.aliases.to_json
-
-				end
-
-				delete do
-					protected!
-					returns_json
-					@country.remove_alias!(params[:alias])
-					@country.aliases.to_json
-				end
+				@country.as_json
 			end
 		end
-
 	end
-
 	get "/initialize" do
 		if Country.all.count == 0
 			require 'csv'
@@ -318,7 +164,6 @@ Back end in Mongo, for fun:
 				aliases << row["aiddata_name"]
 				aliases << row["geonames_name"]
 				aliases << row["oecd_name"]
-
 				Country.create({
 					name: row["name"],
 					iso3: row["iso3"],
@@ -342,10 +187,3 @@ Back end in Mongo, for fun:
 		end
 		Country.count
 	end
-
-
-
-```
-
-
-

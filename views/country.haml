@@ -1,0 +1,45 @@
+.container
+	.row-fluid
+		.span12
+			%ul.breadcrumb
+				%li
+					%a{href: "/"}
+						Home
+					%span.divider /
+				%li
+					%a{href: "/countries"}
+						Countries
+					%span.divider /
+				%li.active
+					= @country.iso3
+	.row-fluid
+		.span12
+			%h1.page-header
+				Country:
+				= @country.name
+	.row-fluid
+		.span8
+			%h2
+				Country codes:
+			%table.table.table-hover.sortable
+				%thead
+					%tr
+						%th 
+							Field
+						%th
+							Value
+				%tbody			
+					- Country.canonical_keys.each do |field|
+						%tr
+							%td
+								= field.to_s
+							%td
+								= @country.send(field)
+		.span4
+			.well
+				%h2
+					Aliases:
+				%ul.unstyled
+					- @country.aliases.each do |a|
+						%li
+							= a

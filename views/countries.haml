@@ -1,0 +1,32 @@
+.container
+	.row-fluid
+		.span12
+			%ul.breadcrumb
+				%li
+					%a{href: "/"}
+						Home
+					%span.divider /
+				%li.active
+					%a{href: "/countries"}
+						Countries
+	.row-fluid
+		.span12
+			%h1.page-header
+				All Countries
+	.row-fluid
+		.span12
+			%table.table.table-hover.sortable
+				%thead
+					%tr
+						%th
+							Name
+						%th 
+							ISO3
+				%tbody
+					- @countries.each do |c|
+						%tr
+							%td
+								%a{href: "/countries/#{c.iso3}"}
+									= c.name || "[No Name]"
+							%td
+								= c.iso3

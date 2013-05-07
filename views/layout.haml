@@ -1,10 +1,35 @@
 !!!
 %head
-	%link{rel: 'stylesheet', href: 'bootstrap/css/bootstrap.min.css'}
-	%link{rel: 'stylesheet', href: "stylesheets/bootstrap-sortable.css" }
-	%script{src: 'javascripts/jquery.js'}
-	%script{src: 'bootstrap/js/bootstrap.min.js' }
+	%link{rel: 'stylesheet', href: '/bootstrap/css/bootstrap.min.css'}
+	%link{rel: 'stylesheet', href: "/stylesheets/bootstrap-sortable.css" }
+	%script{src: '/javascripts/jquery.js'}
+	%script{src: '/bootstrap/js/bootstrap.min.js' }
+	%script{src: '/javascripts/bootstrap-sortable.js'}
 	%script
 		= CoffeeScript.compile File.read(settings.root + "/public/coffeescripts/application.coffee")
 %body
+	%header
+		.container
+			%nav.navbar
+				.navbar-inner
+					%span.brand
+						Country Fixer
+					%ul.nav
+						%li
+							%a{href: "/"}
+								Home
+						%li
+							%a{href: "/countries"}
+								Countries
+						%li.dropdown
+							%a{href: "#", class: "dropdown-toggle", "data-toggle" => "dropdown"}
+								Downloads
+								%b.caret
+							%ul.dropdown-menu
+								%li
+									%a{href: "/data/country_codes.csv"}
+										Country Codes (CSV Spreadsheets)
+								%li
+									%a{href: "/data/sources.zip"}
+										Source CSVs (ZIP file)
 	=yield
