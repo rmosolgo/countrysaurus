@@ -89,7 +89,7 @@ Back end in Mongo, for fun:
 ```
 
 ### Country
-- canonical names: 
+
   - OECD, AidData, IMF, COW, UN, ISO2, ISO3
   - Names in other languages
 - aliases: 
@@ -104,6 +104,17 @@ Back end in Mongo, for fun:
 ```Ruby
 	class Country
 		include MongoMapper::Document
+
+```
+#### Canonical names
+These specified keys hold values which the user can map into his spreadsheet. 
+Only admin can change them. They are systematically combined
+with the `:aliases` to implement standardization.
+
+If you add a canonical key, make sure you add it to `@@canonical_keys`, which is used for 
+generating `:all_aliases`.
+
+```Ruby
 		# If you add a key, add it to the 
 		# canonical keys, too!
 		key :name, String, required: true, unique: true
@@ -211,7 +222,11 @@ Back end in Mongo, for fun:
 			aliases.delete(bad_alias)
 			save
 		end
+```
 
+Define the MongoMapper `serializable_hash` method for JSON repsponses:
+
+```Ruby
 		def serializable_hash(options={})
 			if options == nil
 				options = {}
@@ -226,10 +241,15 @@ Back end in Mongo, for fun:
 
 #### Helpers
 
+syntactic sugar for JSON:
 ```Ruby
 	def returns_json
 		content_type :json
 	end
+```
+
+Authorization
+```Ruby
 	# Uncomment and set ENV HTTP_USERNAME and HTTP_PASSWORD to enable password protection with "protected!"
 	def protected!
 		unless authorized?
@@ -255,8 +275,21 @@ Back end in Mongo, for fun:
 	get "/standardize" do
 		"Give an alias, I give you the JSON for the country"
 	end
+```
+
+
+Ruby/REST style routing for Countries:
+
+
+```Ruby
 
 	namespace "/countries" do
+
+```
+
+Get a country list as HTML or JSON (with `/json`):
+
+``` Ruby
 		get do 
 			@countries = Country.all
 			haml :countries
@@ -268,6 +301,11 @@ Back end in Mongo, for fun:
 			"[#{@countries.map(&:to_json).join(",")}]"
 		end
 
+```
+
+Access a country at `/countries/:iso3`:
+
+```Ruby
 		namespace "/:iso3" do
 			before do
 				@country = Country.find_by_iso3(params[:iso3]) # or whatever
@@ -279,7 +317,12 @@ Back end in Mongo, for fun:
 				returns_json
 				@country.to_json
 			end
-			
+```
+
+
+Piping for easy access to the country's aliases:
+
+```Ruby			
 			namespace "/aliases" do
 				get do
 					returns_json 
@@ -304,7 +347,12 @@ Back end in Mongo, for fun:
 		end
 
 	end
+```
 
+
+Covenience for populating the database:
+
+```Ruby
 	get "/initialize" do
 		if Country.all.count == 0
 			require 'csv'
