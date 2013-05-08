@@ -5,6 +5,7 @@
 	%script{src: '/javascripts/jquery.js'}
 	%script{src: '/bootstrap/js/bootstrap.min.js' }
 	%script{src: '/javascripts/bootstrap-sortable.js'}
+	%script{src: '/javascripts/underscore.js'}
 	%script
 		= CoffeeScript.compile File.read(settings.root + "/public/coffeescripts/application.coffee")
 %body
@@ -27,9 +28,31 @@
 								%b.caret
 							%ul.dropdown-menu
 								%li
-									%a{href: "/data/country_codes.csv"}
-										Country Codes (CSV Spreadsheets)
+									%a{href: "/country_codes_csv"}
+										Country Codes (CSV copy of this database)
 								%li
 									%a{href: "/data/sources.zip"}
 										Source CSVs (ZIP file)
+						%li.dropdown
+							%a.dropdown-toggle{"data-toggle" => "dropdown"}
+								API
+								%b.caret
+							.dropdown-menu{style: "padding:8px;"}
+								%p
+									Make a 
+									%tt 
+										GET
+									request with a
+									%tt
+										name
+									parameter to 
+									%tt
+										= "/standardize"
+
+									, for example, to standardize "Congo":
+									%a{href: "/standardize?name=Congo"}
+										name=congo
+									= "."
+								%p
+									Returns a JSON array of country objects.
 	=yield

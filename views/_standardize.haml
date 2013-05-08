@@ -2,37 +2,80 @@
 #try-standardize.container-fluid
 	.row-fluid
 		.span12
+			%h4
+				Try the standardizer:
+	.row-fluid
+		.span12
 			%input.name{type: "text"}
 	.row-fluid
 		.span12
-			%span.btn.btn-info{onclick: "try_standardize()"}
-				Standardize it!
+			%input.btn.btn-info{onclick: "try_standardize()", type:"button", value: "Standardize it!"}
 	.row-fluid
 		.span12
-			%table.table.table-hover#standardize-results
+			%hr
+
+	.row-fluid
+		.span12#results
+
+%script#results-template{type: "text/template"}
+	.row-fluid
+		.alert.alert-success
+			%button.close{type: "button",  "data-dismiss" => "alert"}
+				&times;
+			%p
+				Results for 
+				%b
+					"<%= name %>":
+			%table.table
 				%thead
 					%tr
 						%th 
 							Name
 						%th 
 							ISO3
+						%th
+							Link
 				%tbody
+					<% countries.forEach(function(c) { %>
+					%tr
+						%td
+							<a target="_blank" href="/countries/<%= c['iso3'] %>" >
+							<%= c["name"] %>
+							</a>
+						%td
+							<%= c["iso3"] %>
+						%td
+							<a target="_blank" href="/countries/<%= c['iso3'] %>" >
+							All codes & names &rarr;
+							</a>
+					<% }) %>
+%script#no-results-template{type: "text/template"}
+	.row-fluid
+		.alert.alert-warning
+			%p 
+				No results for 
+				%b
+					"<%= name %>"!
+			%p
+				Consider adding aliases to the 
+				%a{href: '/countries'}
+					database!
+
 :coffeescript
 	@try_standardize = () ->
 		entry_box = $('#try-standardize .name')
 		name = entry_box.val()
 		console.log name
 		
-		results_table = $('#standardize-results tbody')
-		results_table.html("")
+		if name != ""
+			$.get("/standardize", {name: name}, (data) ->
+				entry_box.val("")
+				if data.length > 0
+					results = _.template($("#results-template").html(), {countries: data, name: name})
+					$("#results").prepend(results)
+				else
+					no_results = _.template($("#no-results-template").html(), {name: name})
+					$("#results").prepend(no_results)
+				entry_box.focus()
 
-		$.get("/standardize", {name: name}, (data) ->
-			
-			if data.length > 0
-				entry_box.val('')
-				
-				for d in data
-					tr = "<tr><td><a target='_blank' href='/countries/" + d["iso3"] + "'>" + d["name"] + "</a></td><td>" + d["iso3"] + "</td></tr>"
-					results_table.append(tr)
-
-		)
+			)

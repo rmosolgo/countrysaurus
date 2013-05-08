@@ -87,6 +87,18 @@ Back end in Mongo, for fun:
 	# YourModel.ensure_index(:field_name)
 
 ```
+An extra string method -- to remove diacritics:
+
+```Ruby
+	class String
+		def remove_diacritics
+			self.tr(
+				"ÀÁÂÃÄÅàáâãäåĀāĂăĄąÇçĆćĈĉĊċČčÐðĎďĐđÈÉÊËèéêëĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħÌÍÎÏìíîïĨĩĪīĬĭĮįİıĴĵĶķĸĹĺĻļĽľĿŀŁłÑñŃńŅņŇňŉŊŋÒÓÔÕÖØòóôõöøŌōŎŏŐőŔŕŖŗŘřŚśŜŝŞşŠšſŢţŤťŦŧÙÚÛÜùúûüŨũŪūŬŭŮůŰűŲųŴŵÝýÿŶŷŸŹźŻżŽž", 
+				"AAAAAAaaaaaaAaAaAaCcCcCcCcCcDdDdDdEEEEeeeeEeEeEeEeEeGgGgGgGgHhHhIIIIiiiiIiIiIiIiIiJjKkkLlLlLlLlLlNnNnNnNnnNnOOOOOOooooooOoOoOoRrRrRrSsSsSsSssTtTtTtUUUUuuuuUuUuUuUuUuUuWwYyyYyYZzZzZz")
+		end
+	end
+
+```
 
 ### Country
 
@@ -161,7 +173,13 @@ generating `:all_aliases`.
 			new_aliases += aliases
 
 			@@canonical_keys.each do |key|
-				new_aliases << self.send(key)
+				value = self.send(key)
+```
+Store the aliases WITHOUT special characters:
+
+```Ruby
+				value = value.to_s.remove_diacritics
+				new_aliases << value
 			end
 
 			# a few programatic aliases
@@ -227,7 +245,13 @@ generating `:all_aliases`.
 Standardize with Country.could_be_called(possible_name)
 ```Ruby
 		def self.could_be_called(possible_name)
-			query_name = possible_name.downcase 
+```
+
+- Remove diacritics
+- Standardize case
+
+```Ruby
+			query_name = possible_name.remove_diacritics.downcase 
 
 			matches = []
 			Country.find_each do |country|
@@ -249,7 +273,7 @@ Standardize with Country.could_be_called(possible_name)
 		end
 ```
 
-Define the MongoMapper `serializable_hash` method for JSON repsponses:
+Define the MongoMapper `serializable_hash` method for JSON responses:
 
 ```Ruby
 		def serializable_hash(options={})
@@ -333,14 +357,16 @@ Ruby/REST style routing for Countries:
 Get a country list as HTML or JSON (with `/json`):
 
 ``` Ruby
+		before do
+			@countries = Country.sort(:name).all
+		end
 
 		get do 
-			@countries = Country.all
+			
 			haml :countries
 		end
 
 		get "/json" do 
-			@countries = Country.all
 			returns_json
 			"[#{@countries.map(&:to_json).join(",")}]"
 		end
@@ -388,7 +414,7 @@ Piping for easy access to the country's aliases:
 					returns_json
 					# post { alias: "your_alias"}
 					@country.add_alias!(params[:alias])
-					@country.aliases.to_json
+					redirect to("/countries/#{@country.iso3}")
 
 				end
 
