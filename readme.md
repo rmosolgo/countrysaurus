@@ -119,7 +119,7 @@ generating `:all_aliases`.
 		# canonical keys, too!
 		key :name, String, required: true, unique: true
 		key :iso2, String
-		key :iso3, String
+		key :iso3, String, required: true, unique: true
 		key :iso_numeric, Integer
 		key :aiddata_name, String
 		key :aiddata_code, Integer
@@ -168,7 +168,7 @@ generating `:all_aliases`.
 			new_aliases += self.programatic_aliases
 
 			# save unique, downcased names for matching
-			all_aliases = new_aliases.uniq{|a| a.respond_to?(:downcase) ? a.downcase : a}
+			self.all_aliases = new_aliases.map{|a| a.respond_to?(:downcase) ? a.downcase : a}.uniq
 		end
 
 		def programatic_aliases
@@ -224,6 +224,31 @@ generating `:all_aliases`.
 		end
 ```
 
+Standardize with Country.could_be_called(possible_name)
+```Ruby
+		def self.could_be_called(possible_name)
+			query_name = possible_name.downcase 
+
+			matches = []
+			Country.find_each do |country|
+				is_match = false
+				
+				country.all_aliases.each do |a|
+					if a =~ /#{query_name}/
+						is_match = true
+						break
+					end
+				end
+
+				if is_match	
+					matches << country
+				end
+			end
+			matches
+
+		end
+```
+
 Define the MongoMapper `serializable_hash` method for JSON repsponses:
 
 ```Ruby
@@ -240,43 +265,61 @@ Define the MongoMapper `serializable_hash` method for JSON repsponses:
 ```
 
 #### Helpers
+```Ruby
+	helpers do 
+```
 
 syntactic sugar for JSON:
 ```Ruby
-	def returns_json
-		content_type :json
-	end
+		def returns_json
+			content_type :json
+		end
 ```
 
 Authorization
 ```Ruby
 	# Uncomment and set ENV HTTP_USERNAME and HTTP_PASSWORD to enable password protection with "protected!"
-	def protected!
-		unless authorized?
-			p "Unauthorized request."
-			response['WWW-Authenticate'] = %(Basic)
-			throw(:halt, [401, "Not authorized\n"])
+		def protected!
+			unless authorized?
+				p "Unauthorized request."
+				response['WWW-Authenticate'] = %(Basic)
+				throw(:halt, [401, "Not authorized\n"])
+			end
 		end
-	end
-	# AUTH_PAIR = [ENV['HTTP_USERNAME'], ENV['HTTP_PASSWORD']]
-	AUTH_PAIR = ["aiddata", "aiddata"]
-	def authorized?
-		@auth ||=  Rack::Auth::Basic::Request.new(request.env)
-		@auth.provided? && @auth.basic? && @auth.credentials && @auth.credentials == AUTH_PAIR
+		# AUTH_PAIR = [ENV['HTTP_USERNAME'], ENV['HTTP_PASSWORD']]
+		AUTH_PAIR = ["aiddata", "a1dd4t4"]
+		def authorized?
+			@auth ||=  Rack::Auth::Basic::Request.new(request.env)
+			(@auth.provided? && @auth.basic? && @auth.credentials && @auth.credentials == AUTH_PAIR)
+		end
+```
+
+```Ruby
 	end
 ```
 
 #### Routes 
+
+##### General Routes
+
 ```Ruby
 	get "/" do
-		"Home"
-	end
-
-	get "/standardize" do
-		"Give an alias, I give you the JSON for the country"
+		haml :home
 	end
 ```
 
+Endpoint for standardization API:
+
+```Ruby
+	get "/standardize" do
+		returns_json
+		query_name = params[:name]
+		matches = Country.could_be_called(query_name)
+		matches.to_json
+	end
+```
+
+##### Countries
 
 Ruby/REST style routing for Countries:
 
@@ -290,6 +333,7 @@ Ruby/REST style routing for Countries:
 Get a country list as HTML or JSON (with `/json`):
 
 ``` Ruby
+
 		get do 
 			@countries = Country.all
 			haml :countries
@@ -312,10 +356,21 @@ Access a country at `/countries/:iso3`:
 			end
 
 			get { haml :country }
-			
+
 			get "/json" do
 				returns_json
 				@country.to_json
+			end
+
+			get "/edit" do 
+				protected!
+				haml :country_edit
+			end
+
+			post do
+				protected!
+				@country.update_attributes!(params[:country])
+				redirect to("/countries/#{@country.iso3}")
 			end
 ```
 

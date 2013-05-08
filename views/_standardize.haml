@@ -1,0 +1,38 @@
+
+#try-standardize.container-fluid
+	.row-fluid
+		.span12
+			%input.name{type: "text"}
+	.row-fluid
+		.span12
+			%span.btn.btn-info{onclick: "try_standardize()"}
+				Standardize it!
+	.row-fluid
+		.span12
+			%table.table.table-hover#standardize-results
+				%thead
+					%tr
+						%th 
+							Name
+						%th 
+							ISO3
+				%tbody
+:coffeescript
+	@try_standardize = () ->
+		entry_box = $('#try-standardize .name')
+		name = entry_box.val()
+		console.log name
+		
+		results_table = $('#standardize-results tbody')
+		results_table.html("")
+
+		$.get("/standardize", {name: name}, (data) ->
+			
+			if data.length > 0
+				entry_box.val('')
+				
+				for d in data
+					tr = "<tr><td><a target='_blank' href='/countries/" + d["iso3"] + "'>" + d["name"] + "</a></td><td>" + d["iso3"] + "</td></tr>"
+					results_table.append(tr)
+
+		)

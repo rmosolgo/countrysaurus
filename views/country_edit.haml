@@ -1,0 +1,63 @@
+.container
+	.row-fluid
+		.span12
+			%ul.breadcrumb
+				%li
+					%a{href: "/"}
+						Home
+					%span.divider /
+				%li
+					%a{href: "/countries"}
+						Countries
+					%span.divider /
+				%li
+					%a{href: "/countries/#{@country.iso3}"}
+						= @country.iso3
+					%span.divider /
+				%li.active
+					Edit
+
+	.row-fluid
+		.span12
+			%h1.page-header
+				Edit Country:
+				= @country.name
+	.row-fluid
+		.span8
+			%h2
+				Country codes:
+			%form{method: "POST", action: "/countries/#{@country.iso3}"}
+				%table.table.table-hover.sortable
+					%thead
+						%tr
+							%th 
+								Field
+							%th
+								Value
+					%tbody			
+						- Country.canonical_keys.each do |field|
+							%tr
+								%td
+									= field.to_s
+								%td
+									%input{type: "text", name: "country[#{field.to_s}]", value: "#{@country.send(field)}"}
+				%input.btn.btn-primary{type:"submit", value: "Save your changes"}
+		.span4
+			.well
+				%h2
+					Aliases:
+				%ul.unstyled
+					- @country.aliases.each do |a|
+						%li
+							= a
+							%span.btn.btn-mini.btn-danger{onclick: "delete_alias(\"#{a}\")"}
+								Delete
+:javascript
+	delete_alias = function(alias) {
+		$.ajax({
+			type: 'DELETE',
+			url: "/countries/#{@country.iso3}/aliases",
+			data: {alias: alias},
+			success: function(data) {location.reload()}
+		})
+	}

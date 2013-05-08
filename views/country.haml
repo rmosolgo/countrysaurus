@@ -12,11 +12,18 @@
 					%span.divider /
 				%li.active
 					= @country.iso3
+
+				%li.pull-right
+					%span.divider /
+					%a.text-success{href: "/countries/#{@country.iso3}/edit"}
+						Edit
 	.row-fluid
 		.span12
 			%h1.page-header
 				Country:
 				= @country.name
+
+	
 	.row-fluid
 		.span8
 			%h2
@@ -43,3 +50,20 @@
 					- @country.aliases.each do |a|
 						%li
 							= a
+				%span.btn.btn-info{onclick: "$(this).slideUp();$('.new-alias').parent().slideDown();$('.new-alias').focus();"}
+					Add an alias
+				.alert.alert-success{style: "display:none;"}
+					%input.new-alias{type: 'text', name: "alias"}
+					%span.btn.btn-success{onclick: "send_alias()" }
+						Save
+
+:javascript
+	send_alias = function () {
+		this_alias = $('.new-alias').val()
+		console.log(this_alias)
+		$.post(
+			'/countries/#{@country.iso3}/aliases', 
+			{alias: this_alias}
+			, function(data) {location.reload()}
+			)
+		}

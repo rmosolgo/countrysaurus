@@ -22,7 +22,7 @@
 		# canonical keys, too!
 		key :name, String, required: true, unique: true
 		key :iso2, String
-		key :iso3, String
+		key :iso3, String, required: true, unique: true
 		key :iso_numeric, Integer
 		key :aiddata_name, String
 		key :aiddata_code, Integer
@@ -39,7 +39,9 @@
 		key :aliases, Array 
 		key :all_aliases, Array
 		timestamps!
+		before_save :remove_duplicate_aliases
 		before_save :combine_fields_to_all_aliases
+		
 		@@canonical_keys = [
 			:iso2, :iso3, :name, :iso_numeric, 
 			:aiddata_name, :aiddata_code, 
@@ -47,6 +49,12 @@
 			:geonames_id, :oecd_code, :oecd_name, 
 			:cow_numeric, :cow_alpha
 		]
+		def self.canonical_keys
+			@@canonical_keys
+		end
+		def remove_duplicate_aliases
+			self.aliases = self.aliases.uniq
+		end
 		def combine_fields_to_all_aliases
 			new_aliases = []
 			new_aliases += aliases
@@ -56,7 +64,7 @@
 			# a few programatic aliases
 			new_aliases += self.programatic_aliases
 			# save unique, downcased names for matching
-			all_aliases = new_aliases.uniq{|a| a.respond_to?(:downcase) ? a.downcase : a}
+			self.all_aliases = new_aliases.map{|a| a.respond_to?(:downcase) ? a.downcase : a}.uniq
 		end
 		def programatic_aliases
 			downcased_name = name.downcase 
@@ -102,52 +110,105 @@
 			aliases.delete(bad_alias)
 			save
 		end
-		def serializable_hash(options = {})
-			super({:only => @@canonical_keys}.merge(options))
+		def self.could_be_called(possible_name)
+			query_name = possible_name.downcase 
+			matches = []
+			Country.find_each do |country|
+				is_match = false
+				
+				country.all_aliases.each do |a|
+					if a =~ /#{query_name}/
+						is_match = true
+						break
+					end
+				end
+				if is_match	
+					matches << country
+				end
+			end
+			matches
+		end
+		def serializable_hash(options={})
+			if options == nil
+				options = {}
+			end
+			fields_to_show = @@canonical_keys + [:aliases]
+			super({only: fields_to_show}.merge(options))
 		end
 	end
-	def returns_json
-		content_type :json
+	helpers do 
+		def returns_json
+			content_type :json
+		end
+	# Uncomment and set ENV HTTP_USERNAME and HTTP_PASSWORD to enable password protection with "protected!"
+		def protected!
+			unless authorized?
+				p "Unauthorized request."
+				response['WWW-Authenticate'] = %(Basic)
+				throw(:halt, [401, "Not authorized\n"])
+			end
+		end
+		# AUTH_PAIR = [ENV['HTTP_USERNAME'], ENV['HTTP_PASSWORD']]
+		AUTH_PAIR = ["aiddata", "a1dd4t4"]
+		def authorized?
+			@auth ||=  Rack::Auth::Basic::Request.new(request.env)
+			(@auth.provided? && @auth.basic? && @auth.credentials && @auth.credentials == AUTH_PAIR)
+		end
 	end
-	# # Uncomment and set ENV HTTP_USERNAME and HTTP_PASSWORD to enable password protection with "protected!"
-	# def protected!
-	# 	unless authorized?
-	# 		p "Unauthorized request."
-	# 		response['WWW-Authenticate'] = %(Basic)
-	# 		throw(:halt, [401, "Not authorized\n"])
-	# 	end
-	# end
-	# AUTH_PAIR = [ENV['HTTP_USERNAME'], ENV['HTTP_PASSWORD']]
-	# def authorized?
-	# 	@auth ||=  Rack::Auth::Basic::Request.new(request.env)
-	# 	@auth.provided? && @auth.basic? && @auth.credentials && @auth.credentials == AUTH_PAIR
-	# end
 	get "/" do
-		"Home"
+		haml :home
 	end
 	get "/standardize" do
-		"Give an alias, I give you the JSON for the country"
-	end
-	get "/downloads" do
-		"Download country files"
+		returns_json
+		query_name = params[:name]
+		matches = Country.could_be_called(query_name)
+		matches.to_json
 	end
 	namespace "/countries" do
 		get do 
-			Country.all.count
+			@countries = Country.all
+			haml :countries
 		end
-		
+		get "/json" do 
+			@countries = Country.all
+			returns_json
+			"[#{@countries.map(&:to_json).join(",")}]"
+		end
 		namespace "/:iso3" do
 			before do
 				@country = Country.find_by_iso3(params[:iso3]) # or whatever
 			end
-			get { "Country page!"}
-			post "/alias/:new_alias" do
-				@country.add_alias(params[:new_alias])
-				redirect to("/countries/#{@country.iso3}")
-			end
+			get { haml :country }
 			get "/json" do
 				returns_json
-				@country.as_json
+				@country.to_json
+			end
+			get "/edit" do 
+				protected!
+				haml :country_edit
+			end
+			post do
+				protected!
+				@country.update_attributes!(params[:country])
+				redirect to("/countries/#{@country.iso3}")
+			end
+			namespace "/aliases" do
+				get do
+					returns_json 
+					@country.aliases.to_json
+				end
+				post do
+					returns_json
+					# post { alias: "your_alias"}
+					@country.add_alias!(params[:alias])
+					@country.aliases.to_json
+				end
+				delete do
+					protected!
+					returns_json
+					@country.remove_alias!(params[:alias])
+					@country.aliases.to_json
+				end
 			end
 		end
 	end
