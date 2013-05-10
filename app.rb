@@ -173,6 +173,7 @@
 		key :status, String
 		key :field_names, Array
 		key :unique_values, Array
+		key :possible_names, Array
 		before_create :set_field_names
 		def set_field_names
 			self.field_names = CSV.parse(self.csv_text).first
@@ -180,23 +181,29 @@
 		end
 		def find_unique_values_in(fn)
 			
-			if !fn.is_a? Array 
-				fn = [fn]
-			end
-			self.field_names = fn
-			values = []
-			CSV.parse(csv_text, headers: true) do |row|
-				fn.each do |field|
-					unless (values.include?(row[field])) || ([nil, ""].include?(row[field]))
-						values << row[field]
-					end
+			thread = Thread.new do
+				if !fn.is_a? Array 
+					fn = [fn]
 				end
-			end	
-			values.sort!
-			self.unique_values = values 
-			self.save 
-			p self.unique_values
-			self.unique_values
+				self.field_names = fn
+				values = []
+				i = 0
+				CSV.parse(csv_text, headers: true) do |row|
+					i += 1
+					if i % 10 == 0
+						self.update_attributes! status: "Working: searched for unique values in #{i}/#{self.file_length} rows..."
+					end
+					fn.each do |field|
+						unless (values.include?(row[field])) || ([nil, ""].include?(row[field]))
+							values << row[field]
+						end
+					end
+				end	
+				values.sort!
+				self.update_attributes! unique_values: values, status: "found_unique_values"
+			end
+			self.update_attributes! status: "Finding unique values..."
+			thread
 		end
 		def find_possible_names_in(fn)
 			if (fn != nil && fn!=self.field_names) || self.unique_values==[]
@@ -205,29 +212,45 @@
 				else
 					p "Reuqested possible names, but for different fields than unique fields"
 				end
-				values = self.find_unique_values_in(fn)
+				thread = self.find_unique_values_in(fn)
+				thread.join
+				find_possible_names_in_separate_thread(fn)
 			else
 				p "Requested possible names, field_names and values already found."
-				values = self.unique_values
+				find_possible_names_in_separate_thread(fn)
 			end
-			possible_matches = []
-			values.each do |possible_name|
-				match = {}
-				match["value"] = possible_name
-				if country = Country.could_be_called(possible_name)[0]
-					country_name = country.name
-					country_iso3 = country.iso3
-				else
-					country_name = nil
-					country_iso3 = nil
-				end
-				match["match"] = {
-					"name" => country_name,
-					"iso3" => country_iso3
-				}
-				possible_matches << match
-			end	
-			possible_matches
+			self.status
+		end
+		def find_possible_names_in_separate_thread(fn)
+			thread = Thread.new do
+				values = self.unique_values
+				possible_matches = []
+				i = 0
+				values_length = values.length
+				values.each do |possible_name|
+					i += 1
+					if i % 10
+						self.update_attributes! status: "Working: tested #{i}/#{values_length} values..."
+					end
+					match = {}
+					match["value"] = possible_name
+					if country = Country.could_be_called(possible_name)[0]
+						country_name = country.name
+						country_iso3 = country.iso3
+					else
+						country_name = nil
+						country_iso3 = nil
+					end
+					match["match"] = {
+						"name" => country_name,
+						"iso3" => country_iso3
+					}
+					possible_matches << match
+				end	
+				self.update_attributes! possible_names: possible_matches, status: "found_possible_matches"
+			end
+			self.update_attributes! status: "Started standardizing values..."
+			thread
 		end
 		def standardize!(field_names, codes_to_add, values_to_iso3)
 			p field_names, codes_to_add, values_to_iso3
@@ -338,14 +361,27 @@
 			end
 			get "/unique_values" do
 				returns_json 
-				possible_names = @spreadsheet.find_unique_values_in(params[:field_names])
-				json = JSON.dump(possible_names)
+				# Starts a background process:
+				if @spreadsheet.unque_values.empty?
+					@spreadsheet.find_unique_values_in(params[:field_names])
+				end
+				if @spreadsheet.status == 'found_unique_values'
+					json = JSON.dump(@spreadsheet.found_unique_values) 
+				else 
+					json = "{ \"status\" : \"#{@spreadsheet.status}\"}"
+				end
 			end
 			
 			get "/possible_names" do
 				returns_json 
-				possible_names = @spreadsheet.find_possible_names_in(params[:field_names])
-				json = JSON.dump(possible_names) || "{\"status\" : \"error\"}"
+				if @spreadsheet.possible_names.empty?
+					@spreadsheet.find_possible_names_in(params[:field_names])
+				end
+				if @spreadsheet.status == 'found_possible_matches'
+					json = JSON.dump(@spreadsheet.possible_names) 
+				else 
+					json = "{ \"status\" : \"#{@spreadsheet.status}\"}"
+				end
 			end
 			post "/standardize" do
 				Thread.new do
@@ -360,9 +396,9 @@
 			end
 			get "/new_csv" do
 				
-				if (text = @spreadsheet.new_csv_text) && text != ""
+				if @spreadsheet.status = "csv_is_ready"
 					returns_csv("#{@spreadsheet.filename}_standardized")
-					text
+					@spreadsheet.new_csv_text
 				else
 					returns_json
 					"{ \"status\" : \"#{@spreadsheet.status}\"}"

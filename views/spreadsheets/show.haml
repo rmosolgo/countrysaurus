@@ -8,13 +8,6 @@
 				%small.pull-right
 					%a{href: "#", onclick: "jump_to_step(1)"}
 						Start Over		
-	/ .row-fluid
-	/ 	- (1..4).to_a.each do |step|
-	/ 		%p.span2
-	/ 			%a{href: "#", onclick: "jump_to_step(#{step})"}
-	/ 				Jump to Step
-	/ 				= step
-
 	.row-fluid.working
 		.span12
 			.alert.alert-info
@@ -26,11 +19,17 @@
 					I found these field names. 
 					%span.text-info
 						Which ones have country names in them?
-				%ul.unstyled
-					- @spreadsheet.field_names.each do |name|
-						%li
-							%span.field-name.btn{onclick: "$(this).toggleClass('btn-info')"}
-								= name
+				- number_of_field_names = @spreadsheet.field_names.length
+				- ul_width = 4
+				- ul_length = 15
+				- @spreadsheet.field_names.each_slice(ul_length * ul_width) do |big_slice|
+					.row-fluid
+						- big_slice.each_slice(ul_length) do |slice|
+							%ul.unstyled{class: "span#{12/ul_width}"}
+								- slice.each do |name|
+									%li
+										%p.field-name.btn.btn-block{onclick: "$(this).toggleClass('btn-info')"}
+											= name
 			.row-fluid
 				%p.btn.btn-success{onclick: "to_step2()"}
 					Continue &rarr;
@@ -202,14 +201,17 @@
 				(data) ->
 
 					console.log "received", data
-					stop_working()
-					$('.step2').slideDown()
-					target = $('#matches')
-					target.html("")
-					template_html = $("#match-template").html()
-					for match in data 
-						item = _.template(template_html, match)
-						target.append(item)
+					start_polling("found_possible_matches", (status) ->
+						$.get(this_url + "/possible_names", (data) ->
+							$('.step2').slideDown()
+							target = $('#matches')
+							target.html("")
+							template_html = $("#match-template").html()
+							for match in data 
+								item = _.template(template_html, match)
+								target.append(item)
+						)
+					)
 
 		
 			)
@@ -246,23 +248,29 @@
 			this_url + "/standardize",
 			standardize_data,
 			(data) ->
-				start_polling()
-		)
-
-	@start_polling = () ->
-		update_status = () ->
-			$.get(this_url + "/status", (data) ->
-				if data.status != "csv_is_ready"	
-					$('.working .alert').text(data.status)
-				else 
-					clearInterval(window.check_progress)
-					stop_working()
+				callback = (data) ->
 					$('.step4').slideDown()
-					window.onunload = () ->
+					window.onbeforeunload = () ->
 						$.ajax({
+							async: false,
 							type: "delete",
 							url: this_url
 						})
+						undefined
+
+				start_polling("csv_is_ready", callback)
+		)
+
+	@start_polling = (until_status, callback_function) ->
+		update_status = () ->
+			$.get(this_url + "/status", (data) ->
+				if data.status != until_status	
+					$('.working .alert').text(data.status)
+				else 
+					console.log "Stop polling, data:", data
+					clearInterval(window.check_progress)
+					stop_working()
+					callback_function(data)
 
 			)
 		window.check_progress = setInterval(update_status, 1000)
