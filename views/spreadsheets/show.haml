@@ -47,11 +47,11 @@
 	.row-fluid.step.step3
 		%h4 Which country codes/names should I add to your data?
 		%table.table.table-bordered
-			- Country.canonical_keys.each_slice(3) do |slice|
-				%tr
+			- Country.canonical_keys.each_slice(8) do |slice|
+				%ul.unstyled.span3
 					- slice.each do |key|
-						%td
-							%span.code{style: "cursor:pointer;", onclick: "$(this).toggleClass('text-info')"}
+						%li
+							%span.code.btn.btn-block{onclick: "$(this).toggleClass('btn-info')"}
 								= key.to_s
 		.row-fluid
 			%p.btn.btn-success{onclick: "to_step4()"}
@@ -232,7 +232,7 @@
 
 	@to_step4 = () ->
 		window.codes_to_add = []
-		$('.code.text-info').each(() ->
+		$('.code.btn-info').each(() ->
 			codes_to_add.push($(this).text().trim())
 		)
 		standardize_data = {

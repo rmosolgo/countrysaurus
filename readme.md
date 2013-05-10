@@ -589,7 +589,10 @@ Endpoint for standardization API:
 			end
 
 			delete do 
-				@spreadsheet.destroy
+				Thread.new do
+					sleep(5.minutes)	
+					@spreadsheet.destroy
+				end
 				redirect to("/spreadsheets")
 			end
 

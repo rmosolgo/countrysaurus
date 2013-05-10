@@ -356,7 +356,10 @@
 				haml :"spreadsheets/show"
 			end
 			delete do 
-				@spreadsheet.destroy
+				Thread.new do
+					sleep(5.minutes)	
+					@spreadsheet.destroy
+				end
 				redirect to("/spreadsheets")
 			end
 			get "/unique_values" do
