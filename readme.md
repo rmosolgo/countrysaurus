@@ -1,4 +1,4 @@
-CODE ```
+
 # Country Name Fixer
 
 ## Use
@@ -22,12 +22,7 @@ CODE ```
 ### 4. Add new country names
 
 - "I can look through and find countries. What fields should I add to your spreadsheet?"
-- Available names:
-  - ISO2
-  - ISO3
-  - COW
-  - UN
-  - AidData Names
+
 
 ### 5. Return original CSV with new names
 
@@ -61,6 +56,7 @@ to deploy:
 ```
 
 ### Gems 
+CODE ```
 ```Ruby
 	# coding: utf-8
 	require 'rubygems'
