@@ -31,8 +31,6 @@
 					%tr
 						%th 
 							Name
-						%th 
-							ISO3
 						%th
 							Link
 				%tbody
@@ -43,15 +41,15 @@
 							<%= c["name"] %>
 							</a>
 						%td
-							<%= c["iso3"] %>
-						%td
 							<a target="_blank" href="/countries/<%= c['iso3'] %>" >
-							All codes & names &rarr;
+							All Codes &rarr;
 							</a>
 					<% }) %>
 %script#no-results-template{type: "text/template"}
 	.row-fluid
 		.alert.alert-warning
+			%button.close{type: "button",  "data-dismiss" => "alert"}
+				&times;
 			%p 
 				No results for 
 				%b

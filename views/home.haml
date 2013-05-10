@@ -5,9 +5,45 @@
 			%h1.page-header
 				Country Standardizer
 	.row-fluid
-		.span6
-			!= haml :"spreadsheets/_upload"
+		.span8
+			%p
+				%strong
+					Use this website to standardize country names in CSV spreadsheets. 
+			%p
+				You will be guided through the process:
+			%ol
+				%li
+					%p 
+						Upload your spreadsheet using the form below.
+				%li
+					%p 
+						Choose the columns you want to standardize.
+				%li
+					%p 
+						The application will search for country names.
+				%li
+					%p 
+						The application will show you its best guesses, and you can change them (and automatically add your recommendations to the master database).
+				%li
+					%p 
+						Choose the codes you want to add for each of your selected fields:
+					%p.muted
+						%strong
+							Options:
+						= Country.canonical_keys.join ", "
+				%li
+					%p 	
+						Download your spreadsheet
+					%p.muted
+						Your spreadsheet is removed from the server after 5 minutes.
 
-		.span6
-			!= haml :"_standardize"
+		.span4
+			.well.well-small
+				!= haml :"_standardize"
+	.row-fluid
+		.span12
+			.alert.alert-success
+				%br
+				!= haml :"spreadsheets/_upload"
+
 					
