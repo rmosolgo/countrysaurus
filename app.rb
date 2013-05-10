@@ -16,6 +16,13 @@
 	MongoMapper.connection = Mongo::Connection.from_uri mongo_url
 	MongoMapper.database = URI.parse(mongo_url).path.gsub(/^\//, '') #Extracts 'dbname' from the uri
 	# YourModel.ensure_index(:field_name)
+	class String
+		def remove_diacritics
+			self.tr(
+				"ÀÁÂÃÄÅàáâãäåĀāĂăĄąÇçĆćĈĉĊċČčÐðĎďĐđÈÉÊËèéêëĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħÌÍÎÏìíîïĨĩĪīĬĭĮįİıĴĵĶķĸĹĺĻļĽľĿŀŁłÑñŃńŅņŇňŉŊŋÒÓÔÕÖØòóôõöøŌōŎŏŐőŔŕŖŗŘřŚśŜŝŞşŠšſŢţŤťŦŧÙÚÛÜùúûüŨũŪūŬŭŮůŰűŲųŴŵÝýÿŶŷŸŹźŻżŽž", 
+				"AAAAAAaaaaaaAaAaAaCcCcCcCcCcDdDdDdEEEEeeeeEeEeEeEeEeGgGgGgGgHhHhIIIIiiiiIiIiIiIiIiJjKkkLlLlLlLlLlNnNnNnNnnNnOOOOOOooooooOoOoOoRrRrRrSsSsSsSssTtTtTtUUUUuuuuUuUuUuUuUuUuWwYyyYyYZzZzZz")
+		end
+	end
 	class Country
 		include MongoMapper::Document
 		# If you add a key, add it to the 
@@ -42,13 +49,13 @@
 		before_save :remove_duplicate_aliases
 		before_save :combine_fields_to_all_aliases
 		
-		@@canonical_keys = [
-			:iso2, :iso3, :name, :iso_numeric, 
+		@@canonical_keys = [:name] + [
+			:iso2, :iso3, :iso_numeric, 
 			:aiddata_name, :aiddata_code, 
 			:fao_code, :un_code, :wb_code, :imf_code, :fips,
 			:geonames_id, :oecd_code, :oecd_name, 
 			:cow_numeric, :cow_alpha
-		]
+		].sort
 		def self.canonical_keys
 			@@canonical_keys
 		end
@@ -59,7 +66,9 @@
 			new_aliases = []
 			new_aliases += aliases
 			@@canonical_keys.each do |key|
-				new_aliases << self.send(key)
+				value = self.send(key)
+				value = value.to_s.remove_diacritics
+				new_aliases << value
 			end
 			# a few programatic aliases
 			new_aliases += self.programatic_aliases
@@ -111,7 +120,7 @@
 			save
 		end
 		def self.could_be_called(possible_name)
-			query_name = possible_name.downcase 
+			query_name = possible_name.remove_diacritics.downcase 
 			matches = []
 			Country.find_each do |country|
 				is_match = false
@@ -135,10 +144,55 @@
 			fields_to_show = @@canonical_keys + [:aliases]
 			super({only: fields_to_show}.merge(options))
 		end
+		def self.csv_header
+			@@canonical_keys.map{|k| k.to_s}.join(",") + "\n"
+		end
+		def to_csv
+			
+			csv_text = ""
+			@@canonical_keys.map {|key|
+				csv_text += "\"#{self.send(key)}\""
+			}.join(",")
+			csv_text += "\n"
+		end
+	end
+	MAX_FILE_SIZE = 10485760 # 10 MB in bytes
+	class Spreadsheet
+		include MongoMapper::Document
+		require 'csv'
+		key :filename, String
+		key :csv_text, String, required: true 
+		key :field_names, Array 
+		key :possible_names, Array
+		key :matched_names, Array 
+		key :status, Integer
+		after_create :set_field_names!
+		def set_field_names! 
+			headers = CSV.parse(self.csv_text).first
+			p headers
+			self.field_names = headers
+			save
+		end
+		def find_possible_names!(field_names)
+			values = []
+			CSV.parse(csv_text, headers: true) do |row|
+				field_names.each do |field|
+					unless values.include? row[field]
+						values << row["field"]
+					end
+				end
+			end
+			
+			possible_names = values.sort!.uniq!
+		end
 	end
 	helpers do 
 		def returns_json
 			content_type :json
+		end
+		def returns_csv(filename='data')
+			content_type 'application/csv'
+			attachment "#{filename}.csv"
 		end
 	# Uncomment and set ENV HTTP_USERNAME and HTTP_PASSWORD to enable password protection with "protected!"
 		def protected!
@@ -164,15 +218,46 @@
 		matches = Country.could_be_called(query_name)
 		matches.to_json
 	end
-	namespace "/countries" do
+	namespace "/spreadsheets" do 
 		get do 
-			@countries = Country.all
+			haml :"spreadsheets/index"
+		end
+		post do
+			p "Posting to spreadsheets... #{params.inspect}"
+			if params[:file]
+				p "Receiving file #{params[:file]}"
+				unless params[:file] && (tempfile = params[:file][:tempfile]) && (name = params[:file][:filename])
+					return "Error: couldn't find your file!"
+				end
+				if tempfile.size <= MAX_FILE_SIZE
+					this_csv_text = tempfile.read
+					p this_csv_text
+					this_spreadsheet = Spreadsheet.create(filename: name, csv_text: this_csv_text )
+					return "Ok, saved!"
+				else
+					return "Error: that file is too big! Try splitting into multiple files."
+				end
+			end
+		end
+	end
+	namespace "/countries" do
+		before do
+			@countries = Country.sort(:name).all
+		end
+		get do 
+			
 			haml :countries
 		end
 		get "/json" do 
-			@countries = Country.all
 			returns_json
 			"[#{@countries.map(&:to_json).join(",")}]"
+		end
+		get "/csv" do
+			csv_header =  Country.csv_header 
+			csv_body = Country.all.map(&:to_csv).join
+			csv_text = csv_header + csv_body
+			returns_csv("countries")
+			csv_text
 		end
 		namespace "/:iso3" do
 			before do
@@ -201,7 +286,7 @@
 					returns_json
 					# post { alias: "your_alias"}
 					@country.add_alias!(params[:alias])
-					@country.aliases.to_json
+					redirect to("/countries/#{@country.iso3}")
 				end
 				delete do
 					protected!
@@ -247,4 +332,7 @@
 			end
 		end
 		Country.count
+	end
+	get "/wipe" do
+		Country.find_each(&:destroy)
 	end

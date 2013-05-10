@@ -8,6 +8,8 @@
 	%script{src: '/javascripts/underscore.js'}
 	%script
 		= CoffeeScript.compile File.read(settings.root + "/public/coffeescripts/application.coffee")
+	%title
+		Country Standardizer
 %body
 	%header
 		.container
@@ -28,7 +30,7 @@
 								%b.caret
 							%ul.dropdown-menu
 								%li
-									%a{href: "/country_codes_csv"}
+									%a{href: "/countries/csv"}
 										Country Codes (CSV copy of this database)
 								%li
 									%a{href: "/data/sources.zip"}

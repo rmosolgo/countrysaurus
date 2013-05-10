@@ -1,0 +1,268 @@
+.container
+	.row-fluid
+		.span12
+			%h2.page-header
+				Standardize Your Spreadsheet
+				%small
+					= @spreadsheet.filename
+				%small.pull-right
+					%a{href: "#", onclick: "jump_to_step(1)"}
+						Start Over		
+	/ .row-fluid
+	/ 	- (1..4).to_a.each do |step|
+	/ 		%p.span2
+	/ 			%a{href: "#", onclick: "jump_to_step(#{step})"}
+	/ 				Jump to Step
+	/ 				= step
+
+	.row-fluid.working
+		.span12
+			.alert.alert-info
+				%p Working...
+	.row-fluid.step.step1
+		.span12.container-fluid
+			.row-fluid
+				%h4 
+					I found these field names. 
+					%span.text-info
+						Which ones have country names in them?
+				%ul.unstyled
+					- @spreadsheet.field_names.each do |name|
+						%li
+							%span.field-name.btn{onclick: "$(this).toggleClass('btn-info')"}
+								= name
+			.row-fluid
+				%p.btn.btn-success{onclick: "to_step2()"}
+					Continue &rarr;
+	.row-fluid.step.step2
+		.span12.container-fluid
+			%h4.row-fluid
+				I found these country names and tried to match them. 
+				%span.text-info
+					Do any of them need more help?
+			%ul#matches.unstyled.row-fluid
+
+			.row-fluid
+				%p.btn.btn-success{onclick: "to_step3()"}
+					Continue &rarr;
+	.row-fluid.step.step3
+		%h4 Which country codes/names should I add to your data?
+		%table.table.table-bordered
+			- Country.canonical_keys.each_slice(3) do |slice|
+				%tr
+					- slice.each do |key|
+						%td
+							%span.code{style: "cursor:pointer;", onclick: "$(this).toggleClass('text-info')"}
+								= key.to_s
+		.row-fluid
+			%p.btn.btn-success{onclick: "to_step4()"}
+				Continue &rarr;
+	.row-fluid.step.step4
+		.span12.container-fluid
+			.row-fluid
+				%h4.span12	
+					Ok, I joined in standardized country names and codes!
+			.row-fluid
+				.span12
+					.alert.alert-warning
+						%p
+							%strong
+								Warning!
+						%p
+							In order to save space, I'm going to delete your spreadsheet when you close this page.
+						%p
+							So, 
+							%strong
+								download and verify your spreadsheet,
+							and click "Start over" above if you need to start over.
+			.row-fluid
+				%a.btn.btn-success{href: "/spreadsheets/#{@spreadsheet.id}/new_csv"}
+					Download! 
+
+%script#match-template{type: "text/template"}
+	%li.match
+		%strong>
+			"
+			%span.value<>
+				<%= value %>
+			" :
+		%span.first-guess{style: "display:none;"}<>
+			<%= match["iso3"] %>
+		%select.countries{ onchange: "is_this_another_name(this)"}
+			%option
+
+			<%= Countries.as_options(match["iso3"]) %>
+		%p.suggest.alert.alert-info{style: "display:none;"}
+		%p.confirm.text-success{style: "display:none;"}
+
+%script#suggest-template{type: "text/template"}
+	.container-fluid
+		.row-fluid
+			%p.span12
+				Generally speaking, is <%= value %> another name for <%= user_choice %> (<%= user_choice_iso3 %>)?
+		.row-fluid
+			.span6
+				%a.btn.btn-success{onclick: "add_alias(this)"}
+					Yes, let's remember it.
+					.original_value{style: "display:none;"}<>
+						<%= value %>
+					.user_choice{style: "display:none;"}<>
+						<%= user_choice_iso3 %>
+			.span6
+				%a.btn.btn-warning{onclick: "$(this).closest('.suggest').slideUp()"}
+					No, ignore it.
+
+
+
+:coffeescript
+
+	@field_names = []
+	@values_to_iso3 = []
+	@codes_to_add = []
+
+	@Countries = []
+	Countries.as_options = (selected) ->
+		this.map((c) ->
+			iso3 = c["iso3"]
+			if iso3 is selected
+				is_selected = "selected='selected'"
+			else
+				is_selected = ""
+			"<option value='" + iso3 + "' " + is_selected + ">" + c["name"] + "</option>" 
+		).join("")
+
+
+	$.get("/countries/json", (data) ->
+		(Countries.push(d) for d in data)
+		console.log "received", Countries			
+		)
+
+	@is_this_another_name = (el) ->
+		$el = $(el)
+		target = $el.siblings('.suggest')
+		first_guess = $el.siblings('.first-guess').text().trim()
+		
+		data = {}
+		data.value = $el.parent().find(".value").text().trim()
+		data.user_choice = $el.find(":selected").text().trim()
+		data.user_choice_iso3 = $el.find(":selected").val()
+		# console.log "new mapping:", data, "first guess:", first_guess
+
+		if (data.user_choice_iso3 is first_guess) or (data.user_choice_iso3 == "")
+			target.slideUp()
+		else 
+			suggest_html = _.template($('#suggest-template').html(), data)
+			target.html(suggest_html)
+			target.slideDown()
+			# console.log target,suggest_html
+
+	@add_alias = (el) ->
+		$el = $(el)
+		iso3 = $(el).find('.user_choice').text().trim()
+		alias = $(el).find('.original_value').text().trim()
+		$.post(
+			"/countries/" + iso3 + "/aliases",
+			{alias: alias},
+			(data) ->
+				confirm = $el.closest('.suggest').siblings('.confirm')
+				$el.closest('.suggest').slideUp()
+				confirm.text("Ok, saved it! Thanks.").slideDown()
+				setTimeout((() -> confirm.slideUp() ), 3000)
+			)
+
+	@jump_to_step = (step) ->
+		$('.step' + step).show()
+		$('.step:not(.step' + step + '), .working').hide()
+
+	jump_to_step 1
+
+	@this_url = "/spreadsheets/#{@spreadsheet.id}"
+	
+	start_working = (text="Working...") ->
+		$('.working .alert').text(text)
+		$('.working').slideDown()
+	stop_working = () ->
+		$('.working').slideUp()
+
+	@to_step2 = () ->
+		window.field_names = []
+		$('.field-name.btn-info').each(() ->
+			field_names.push $(this).text().trim()
+		)
+
+		if field_names.length > 0
+			
+			console.log "sending field names", field_names
+			start_working("Finding country names in " + field_names.to_sentence() + "...")
+			$('.step1').slideUp(null, null) # () -> $(this).remove())
+			
+			$.get(
+				this_url + "/possible_names",
+				{field_names: field_names}
+				(data) ->
+
+					console.log "received", data
+					stop_working()
+					$('.step2').slideDown()
+					target = $('#matches')
+					target.html("")
+					template_html = $("#match-template").html()
+					for match in data 
+						item = _.template(template_html, match)
+						target.append(item)
+
+		
+			)
+
+
+	@to_step3 = () ->
+		window.values_to_iso3 = {}
+		$('.match').each(() ->
+			$el = $(this)
+			value = $el.find('.value').text().trim()
+			iso3 = $el.find('.countries :selected').val()
+			window.values_to_iso3[value] = iso3
+		)
+		$('.step2').slideUp()
+		console.log "mapping:", values_to_iso3, "field names:", field_names
+		$('.step3').slideDown()
+
+
+	@to_step4 = () ->
+		window.codes_to_add = []
+		$('.code.text-info').each(() ->
+			codes_to_add.push($(this).text().trim())
+		)
+		standardize_data = {
+				field_names: field_names, 
+				values_to_iso3: values_to_iso3,
+				codes_to_add: codes_to_add
+			}
+		$('.step3').slideUp()
+		start_working("Standardizing your spreadsheet and preparing a new file...")
+
+		console.log(standardize_data)
+		$.post(
+			this_url + "/standardize",
+			standardize_data,
+			(data) ->
+				start_polling()
+		)
+
+	@start_polling = () ->
+		update_status = () ->
+			$.get(this_url + "/status", (data) ->
+				if data.status != "csv_is_ready"	
+					$('.working .alert').text(data.status)
+				else 
+					clearInterval(window.check_progress)
+					stop_working()
+					$('.step4').slideDown()
+					window.onunload = () ->
+						$.ajax({
+							type: "delete",
+							url: this_url
+						})
+
+			)
+		window.check_progress = setInterval(update_status, 1000)

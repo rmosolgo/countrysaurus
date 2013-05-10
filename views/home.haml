@@ -6,10 +6,7 @@
 				Country Standardizer
 	.row-fluid
 		.span6
-			%ul.unstyled
-				%li
-					%a{href: "/countries"}
-						Browse countries
+			!= haml :"spreadsheets/_upload"
 
 		.span6
 			!= haml :"_standardize"

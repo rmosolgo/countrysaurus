@@ -1,0 +1,35 @@
+.container
+	.row-fluid
+		%table.table.table-hover.sortable
+			%thead
+				%tr
+					%th 
+						Filename
+					%th
+						Field Names
+					%th
+						Length (Chars)
+					%th
+			%tbody
+				- Spreadsheet.find_each do |s|
+					%tr
+						%td
+							= s.filename
+						%td 
+							= s.field_names
+						%td 
+							= s.csv_text.length
+						%td
+							%span.btn.btn-danger{onclick: "delete_this_spreadsheet(this)", "data-spreadsheet-id" => s.id }
+								Delete
+:javascript
+	delete_this_spreadsheet = function(button) {
+		id = $(button).attr("data-spreadsheet-id")
+		console.log(id)
+		$.ajax({
+			type: "Delete",
+			url: "/spreadsheets/" + id,
+			success: function(data) {location.reload()}
+		})
+	}
+

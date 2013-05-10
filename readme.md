@@ -102,8 +102,7 @@ An extra string method -- to remove diacritics:
 
 ### Country
 
-  - OECD, AidData, IMF, COW, UN, ISO2, ISO3
-  - Names in other languages
+
 - aliases: 
   - other names?? Other spellings, "The", "Ivory Coast"
   - ALWAYS DOWNCASE for matches!
@@ -152,13 +151,13 @@ generating `:all_aliases`.
 		before_save :combine_fields_to_all_aliases
 		
 
-		@@canonical_keys = [
-			:iso2, :iso3, :name, :iso_numeric, 
+		@@canonical_keys = [:name] + [
+			:iso2, :iso3, :iso_numeric, 
 			:aiddata_name, :aiddata_code, 
 			:fao_code, :un_code, :wb_code, :imf_code, :fips,
 			:geonames_id, :oecd_code, :oecd_name, 
 			:cow_numeric, :cow_alpha
-		]
+		].sort
 
 		def self.canonical_keys
 			@@canonical_keys
@@ -251,6 +250,7 @@ Standardize with Country.could_be_called(possible_name)
 - Standardize case
 
 ```Ruby
+			start = Time.new
 			query_name = possible_name.remove_diacritics.downcase 
 
 			matches = []
@@ -258,7 +258,7 @@ Standardize with Country.could_be_called(possible_name)
 				is_match = false
 				
 				country.all_aliases.each do |a|
-					if a =~ /#{query_name}/
+					if a == query_name # regex match was doing bad
 						is_match = true
 						break
 					end
@@ -268,6 +268,7 @@ Standardize with Country.could_be_called(possible_name)
 					matches << country
 				end
 			end
+			p "Tried #{possible_name}, found #{matches.length} matches in #{(Time.new - start).round(3)} seconds"
 			matches
 
 		end
@@ -284,19 +285,198 @@ Define the MongoMapper `serializable_hash` method for JSON responses:
 			super({only: fields_to_show}.merge(options))
 		end
 
+		def self.csv_header
+			@@canonical_keys.map{|k| k.to_s}.join(",") + ",aliases" + "\n"
+		end
+
+		def to_csv
+			
+			csv_text = ""
+			@@canonical_keys.map {|key|
+				csv_text += "\"#{self.send(key)}\""
+			}.join(",")
+
+			csv_text += "\"#{self.aliases.join(";")}\""
+
+			csv_text += "\n"
+
+			csv_text
+		end
+
 	end
 
 ```
 
-#### Helpers
+### Spreadsheets
+
+This is for holding spreadsheets while they're being worked on. I'll dump it when I'm done
+(to save space, if not to protect privacy...)
+
+```Ruby
+	MAX_FILE_SIZE = 10485760 # 10 MB in bytes
+	class Spreadsheet
+		include MongoMapper::Document
+		require 'csv'
+		safe # Kept getting busted on async changes
+		key :filename, String
+		key :csv_text, String, required: true 
+		key :new_csv_text, String 
+		key :file_length, Integer
+		key :status, String
+		key :field_names, Array
+		key :unique_values, Array
+
+
+		before_create :set_field_names
+		def set_field_names
+			self.field_names = CSV.parse(self.csv_text).first
+			self.file_length = CSV.parse(self.csv_text).length
+		end
+
+```
+
+Take some field names (array of strings) and find their unique values:
+
+```Ruby
+
+		def find_unique_values_in(fn)
+			
+			if !fn.is_a? Array 
+				fn = [fn]
+			end
+
+			self.field_names = fn
+
+			values = []
+			CSV.parse(csv_text, headers: true) do |row|
+				fn.each do |field|
+					unless (values.include?(row[field])) || ([nil, ""].include?(row[field]))
+						values << row[field]
+					end
+				end
+			end	
+			values.sort!
+			self.unique_values = values 
+			self.save 
+			p self.unique_values
+			self.unique_values
+		end
+
+		def find_possible_names_in(fn)
+			if (fn != nil && fn!=self.field_names) || self.unique_values==[]
+				if self.unique_values == []
+					p "Requested possible names, but unique values weren't set yet..."
+				else
+					p "Reuqested possible names, but for different fields than unique fields"
+				end
+
+				values = self.find_unique_values_in(fn)
+			else
+				p "Requested possible names, field_names and values already found."
+				values = self.unique_values
+			end
+
+			possible_matches = []
+			values.each do |possible_name|
+				match = {}
+				match["value"] = possible_name
+				if country = Country.could_be_called(possible_name)[0]
+					country_name = country.name
+					country_iso3 = country.iso3
+				else
+					country_name = nil
+					country_iso3 = nil
+				end
+
+				match["match"] = {
+					"name" => country_name,
+					"iso3" => country_iso3
+				}
+				possible_matches << match
+			end	
+
+			possible_matches
+		end
+```
+
+Implement standardization:
+- names of fields to check
+- values_to_iso3 is a hash whose keys are original values and whose values are desired ISO3s
+
+```Ruby
+		def standardize!(field_names, codes_to_add, values_to_iso3)
+			p field_names, codes_to_add, values_to_iso3
+
+			ready = (field_names.length > 0) && (codes_to_add.length > 0) && (values_to_iso3.keys.length > 0)
+			if !ready
+				self.update_attributes! status: "Failed to start."
+			else
+				self.update_attributes! status: "Starting."
+				new_csv = CSV.generate do |csv|
+```
+
+Shovel in the header:
+
+```Ruby
+					header =CSV.parse(self.csv_text).first
+					field_names.each do |field|
+						codes_to_add.each do |code|
+							header << "#{field}_#{code}"
+						end
+					end
+					p header
+					csv << header
+```
+
+Then do it for all rows:
+```Ruby
+					i = 0
+					CSV.parse(csv_text, headers: true) do |row|
+						i +=1
+						if i % 10 == 0
+							self.update_attributes! status: "Working: processed #{i}/#{self.file_length}"
+						end
+
+						field_names.each do |field|
+							if (desired_iso3 = values_to_iso3[row[field]]) && (desired_country = Country.find_by_iso3(desired_iso3))
+								codes_to_add.each do |code|
+									row << (desired_country[code] || "")
+								end
+							else
+								codes_to_add.length.times do 
+									row << ""
+								end
+							end
+						end
+						csv << row
+					end	
+				end
+
+
+				self.new_csv_text = new_csv
+				self.status = "csv_is_ready"
+			end
+			self.save
+		end
+
+	end
+```
+
+
+### Helpers
 ```Ruby
 	helpers do 
 ```
 
-syntactic sugar for JSON:
+syntactic sugar for data:
 ```Ruby
 		def returns_json
 			content_type :json
+		end
+
+		def returns_csv(filename='data')
+			content_type 'application/csv'
+			attachment "#{filename}.csv"
 		end
 ```
 
@@ -322,14 +502,15 @@ Authorization
 	end
 ```
 
-#### Routes 
+### Routes 
 
-##### General Routes
+#### General Routes
 
 ```Ruby
 	get "/" do
 		haml :home
 	end
+
 ```
 
 Endpoint for standardization API:
@@ -343,7 +524,102 @@ Endpoint for standardization API:
 	end
 ```
 
-##### Countries
+#### Spreadsheets
+
+```Ruby
+
+	namespace "/spreadsheets" do 
+		get do 
+			protected!
+			haml :"spreadsheets/index"
+		end
+
+		post do
+			# p "Posting to spreadsheets... #{params.inspect}"
+			if params[:file]
+				# p "Receiving file #{params[:file]}"
+
+				unless params[:file] && (tempfile = params[:file][:tempfile]) && (name = params[:file][:filename])
+					return "Error: couldn't find your file!"
+				end
+
+				if tempfile.size <= MAX_FILE_SIZE
+					this_csv_text = tempfile.read
+					this_spreadsheet = Spreadsheet.create(filename: name.gsub(/\.csv$/, ''), csv_text: this_csv_text )
+					p "Ok, saved #{this_spreadsheet.filename}!"
+					redirect to("/spreadsheets/#{this_spreadsheet.id}")
+				else
+					return "Error: that file is too big! Try splitting into multiple files."
+				end
+			end
+		end
+
+		namespace "/:id" do 
+			before do 
+				@spreadsheet = Spreadsheet.find(params[:id])
+			end
+
+			get do 
+				haml :"spreadsheets/show"
+			end
+
+			delete do 
+				@spreadsheet.destroy
+				redirect to("/spreadsheets")
+			end
+
+
+			get "/unique_values" do
+				returns_json 
+
+				possible_names = @spreadsheet.find_unique_values_in(params[:field_names])
+
+				json = JSON.dump(possible_names)
+			end
+			
+			get "/possible_names" do
+				returns_json 
+
+				possible_names = @spreadsheet.find_possible_names_in(params[:field_names])
+
+				json = JSON.dump(possible_names) || "{\"status\" : \"error\"}"
+			end
+
+			post "/standardize" do
+
+				Thread.new do
+					@spreadsheet.standardize!(params[:field_names], params[:codes_to_add], params[:values_to_iso3])
+				end
+
+
+				returns_json
+				"{ \"status\" : \"started\"}"
+			end
+
+			get "/status" do
+				returns_json
+				"{ \"status\" : \"#{@spreadsheet.status}\"}"
+			end
+
+			get "/new_csv" do
+				
+				if (text = @spreadsheet.new_csv_text) && text != ""
+					returns_csv("#{@spreadsheet.filename}_standardized")
+					text
+				else
+					returns_json
+					"{ \"status\" : \"#{@spreadsheet.status}\"}"
+				end
+
+			end
+
+		end
+
+	end
+
+```
+
+#### Countries
 
 Ruby/REST style routing for Countries:
 
@@ -369,6 +645,14 @@ Get a country list as HTML or JSON (with `/json`):
 		get "/json" do 
 			returns_json
 			"[#{@countries.map(&:to_json).join(",")}]"
+		end
+
+		get "/csv" do
+			csv_header =  Country.csv_header 
+			csv_body = Country.all.map(&:to_csv).join
+			csv_text = csv_header + csv_body
+			returns_csv("countries")
+			csv_text
 		end
 
 ```
@@ -435,6 +719,7 @@ Covenience for populating the database:
 
 ```Ruby
 	get "/initialize" do
+		protected!
 		if Country.all.count == 0
 			require 'csv'
 			initial_codes_file = "public/data/country_codes.csv"
@@ -470,6 +755,11 @@ Covenience for populating the database:
 			end
 		end
 		Country.count
+	end
+
+	get "/wipe" do
+		protected!
+		Country.find_each(&:destroy)
 	end
 
 

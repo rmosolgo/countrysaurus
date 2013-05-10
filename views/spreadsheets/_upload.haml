@@ -1,0 +1,21 @@
+.container-fluid
+	%form{method: "POST", action: "/spreadsheets", enctype: "multipart/form-data"}
+		.row-fluid
+			.span12
+				%h4
+					Choose a spreadsheet:
+		.row-fluid
+			.span12
+				%input{type: "file", name: "file"}
+		.row-fluid
+			.span12
+				%p.muted
+					Maximum file size: 
+					= (MAX_FILE_SIZE/1000000).round
+					MB
+		.row-fluid
+			.span12
+				%input.btn.btn-success.btn-block{type: 'submit', value: "Start!"}
+		.row-fluid
+			.span12
+				%hr

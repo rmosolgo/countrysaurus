@@ -20,13 +20,21 @@
 					%tr
 						%th
 							Name
-						%th 
-							ISO3
+						- keys = [:iso2, :iso3, :iso_numeric]
+						- keys.each do |n|
+							%th
+								= n.to_s.capitalize
+						%th
+							
 				%tbody
 					- @countries.each do |c|
 						%tr
 							%td
 								%a{href: "/countries/#{c.iso3}"}
 									= c.name || "[No Name]"
+							- keys.each do |n|
+								%td<>
+									= c.send(n)
 							%td
-								= c.iso3
+								%a{href: "/countries/#{c.iso3}"}
+									See all names & codes &rarr;

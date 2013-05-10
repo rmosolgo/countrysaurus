@@ -70,3 +70,7 @@
           new_strings.push string
   # console.log('split_to_fit is returning', new_strings)
   return new_strings
+
+
+Array.prototype.to_sentence = () ->
+  this.join(", ").replace(/,\s([^,]+)$/, ' and $1')
