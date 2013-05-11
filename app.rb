@@ -1,11 +1,32 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	# coding: utf-8
 	require 'rubygems'
 	require 'bundler/setup'
 	require 'sinatra'
 	require 'sinatra/namespace'
+
 	require 'thin' # HTTP server
 	require 'haml' # for quick views
 	require 'barista' # for using :coffescript in Haml
+
 	# for MongoDB
 	require 'mongo'
 	require 'mongo_mapper'
@@ -17,6 +38,8 @@
 	MongoMapper.connection = Mongo::Connection.from_uri mongo_url
 	MongoMapper.database = URI.parse(mongo_url).path.gsub(/^\//, '') #Extracts 'dbname' from the uri
 	# YourModel.ensure_index(:field_name)
+
+
 	class String
 		def remove_diacritics
 			self.tr(
@@ -24,8 +47,80 @@
 				"AAAAAAaaaaaaAaAaAaCcCcCcCcCcDdDdDdEEEEeeeeEeEeEeEeEeGgGgGgGgHhHhIIIIiiiiIiIiIiIiIiJjKkkLlLlLlLlLlNnNnNnNnnNnOOOOOOooooooOoOoOoRrRrRrSsSsSsSssTtTtTtUUUUuuuuUuUuUuUuUuUuWwYyyYyYZzZzZz")
 		end
 	end
+
+
+
+	class Stat
+		include MongoMapper::Document
+		key :name, String
+		key :value, Float
+
+		def self.calculate_human_hours_saved!
+			countries_standardized = Stat.find_or_create_by_name("countries_standardized").value || 0
+			spreadsheet_cells_served = Stat.find_or_create_by_name("spreadsheet_cells_served").value || 0
+			human_hours_saved = Stat.find_or_create_by_name("human_hours_saved")
+
+			new_time_in_seconds = 0
+			# 30 seconds per country?
+			new_time_in_seconds += (countries_standardized * 30)
+			# 1 second per cell
+			new_time_in_seconds += (spreadsheet_cells_served * 1)
+
+			new_time_in_hours = ((new_time_in_seconds/60)/60).round(2)
+			human_hours_saved.update_attributes! value: new_time_in_hours
+		end
+		
+		def self.increment_countries_standardized!
+			cs = Stat.find_or_create_by_name("countries_standardized")
+			count = cs.value || 0
+			count += 1
+			cs.update_attributes! value: count 
+			Stat.calculate_human_hours_saved!
+		end
+
+		def self.increment_spreadsheet_cells_served!(cells=1)
+			cs = Stat.find_or_create_by_name("spreadsheet_cells_served")
+			count = cs.value || 0
+			count += cells
+			cs.update_attributes! value: count 
+			Stat.calculate_human_hours_saved!
+		end
+		
+		def self.increment_aliases_added!
+			cs = Stat.find_or_create_by_name("aliases_added")
+			count = cs.value || 0
+			count += 1
+			cs.update_attributes! value: count 
+			Stat.calculate_human_hours_saved!
+		end
+
+		def self.decrement_aliases_added!
+			cs = Stat.find_or_create_by_name("aliases_added")
+			count = cs.value || 0
+			count -= 1
+			if count < 0
+				count = 0
+			end
+
+			cs.update_attributes! value: count 
+			Stat.calculate_human_hours_saved!
+		end
+	end
+
+
+
+
+
+
+
+
+
+
 	class Country
 		include MongoMapper::Document
+
+
+
 		# If you add a key, add it to the 
 		# canonical keys, too!
 		key :name, String, required: true, unique: true
@@ -50,6 +145,7 @@
 		before_save :remove_duplicate_aliases
 		before_save :combine_fields_to_all_aliases
 		
+
 		@@canonical_keys = [:name] + [
 			:iso2, :iso3, :iso_numeric, 
 			:aiddata_name, :aiddata_code, 
@@ -57,72 +153,105 @@
 			:geonames_id, :oecd_code, :oecd_name, 
 			:cow_numeric, :cow_alpha
 		].sort
+
 		def self.canonical_keys
 			@@canonical_keys
 		end
+
 		def remove_duplicate_aliases
 			self.aliases = self.aliases.uniq
 		end
+
 		def combine_fields_to_all_aliases
 			new_aliases = []
 			new_aliases += aliases
+
 			@@canonical_keys.each do |key|
 				value = self.send(key)
+
 				value = value.to_s.remove_diacritics
 				new_aliases << value
 			end
+
 			# a few programatic aliases
 			new_aliases += self.programatic_aliases
+
 			# save unique, downcased names for matching
 			self.all_aliases = new_aliases.map{|a| a.respond_to?(:downcase) ? a.downcase : a}.uniq
 		end
+
 		def programatic_aliases
 			downcased_name = name.downcase 
 			new_aliases = []
 			
+			# "The"
+			countries_with_the = [
+				"Bahamas", "United States", "Sudan", "Ukraine",
+				"United Kingdom", "United Arab Emirates"
+			].map(&:downcase)
+			if countries_with_the.include?(downcased_name)
+				new_aliases << "the #{downcased_name}"
+			end
+
+
 			# St. Nevis 
 			if downcased_name =~ /saint/ || downcased_name =~ /st\./
 				new_aliases << downcased_name.gsub(/saint|st\./, 'st')
 				new_aliases << downcased_name.gsub(/saint/, 'st.')
 				new_aliases << downcased_name.gsub(/st\./, 'saint')	
 			end
+
 			# & // and
 			if downcased_name =~ /and/ || downcased_name =~ /&/
 				new_aliases << downcased_name.gsub(/and|&/, 'and')
 				new_aliases << downcased_name.gsub(/and|&/, '&')
 			end			
+
 			# Dem. Rep.
 			if downcased_name =~ /republic/ || downcased_name =~ /rep\./
 				new_aliases << downcased_name.gsub(/republic|rep\./, 'rep')
 				new_aliases << downcased_name.gsub(/republic/, 'rep.')
 				new_aliases << downcased_name.gsub(/rep\./, 'republic')
 			end
+
 			if downcased_name =~ /democratic/ || downcased_name =~ /dem\./
 				new_aliases << downcased_name.gsub(/democratic|dem\./, 'dem')
 				new_aliases << downcased_name.gsub(/democratic/, 'dem.')
 				new_aliases << downcased_name.gsub(/dem\./, 'democratic')				
 			end
+
 			if (downcased_name =~ /democratic/ || downcased_name =~ /dem\./) &&
 					(downcased_name =~ /republic/ || downcased_name =~ /rep\./)
 				new_aliases << downcased_name.gsub(/democratic|dem\./, 'dem').gsub(/republic|rep\./, 'rep')
 				new_aliases << downcased_name.gsub(/democratic/, 'dem.').gsub(/republic/, 'rep.')
 				new_aliases << downcased_name.gsub(/dem\./, 'democratic').gsub(/rep\./, 'republic')
 			end
+
 			new_aliases
 		end	
+
 		def add_alias!(new_alias)
 			unless aliases.include?(new_alias)
+				Stat.increment_aliases_added!
 				aliases << new_alias
 				save 
 			end
 		end
+
 		def remove_alias!(bad_alias)
-			aliases.delete(bad_alias)
-			save
+			if aliases.include?(bad_alias)
+				Stat.decrement_aliases_added!
+				aliases.delete(bad_alias)
+				save
+			end
 		end
+
 		def self.could_be_called(possible_name)
+
+
 			start = Time.new
 			query_name = possible_name.remove_diacritics.downcase 
+
 			matches = []
 			Country.find_each do |country|
 				is_match = false
@@ -133,13 +262,21 @@
 						break
 					end
 				end
+
 				if is_match	
 					matches << country
 				end
 			end
 			p "Tried #{possible_name}, found #{matches.length} matches in #{(Time.new - start).round(3)} seconds"
+			if matches.length > 0
+				Stat.increment_countries_standardized!
+			end
+
 			matches
+
 		end
+
+
 		def serializable_hash(options={})
 			if options == nil
 				options = {}
@@ -147,20 +284,30 @@
 			fields_to_show = @@canonical_keys + [:aliases]
 			super({only: fields_to_show}.merge(options))
 		end
+
 		def self.csv_header
 			@@canonical_keys.map{|k| k.to_s}.join(",") + ",aliases" + "\n"
 		end
+
 		def to_csv
 			
 			csv_text = ""
 			@@canonical_keys.map {|key|
 				csv_text += "\"#{self.send(key)}\""
 			}.join(",")
+
 			csv_text += "\"#{self.aliases.join(";")}\""
+
 			csv_text += "\n"
+
 			csv_text
 		end
+
 	end
+
+
+
+
 	MAX_FILE_SIZE = 10485760 # 10 MB in bytes
 	class Spreadsheet
 		include MongoMapper::Document
@@ -174,18 +321,42 @@
 		key :field_names, Array
 		key :unique_values, Array
 		key :possible_names, Array
+
+
 		before_create :set_field_names
 		def set_field_names
-			self.field_names = CSV.parse(self.csv_text).first
-			self.file_length = CSV.parse(self.csv_text).length
+			begin
+				self.field_names = CSV.parse(self.csv_text).first
+				self.file_length = CSV.parse(self.csv_text).length
+			rescue
+				self.status = "invalid_file"
+				self.delete_in_5_minutes!
+			end
 		end
+
+		def delete_in_5_minutes!
+			if self.status != "deleting"
+				self.update_attributes! status: "deleting"
+				Thread.new do
+					sleep(5.mins)
+					self.destroy
+				end
+			end
+		end
+
+
+
+
+
 		def find_unique_values_in(fn)
 			
 			thread = Thread.new do
 				if !fn.is_a? Array 
 					fn = [fn]
 				end
+
 				self.field_names = fn
+
 				values = []
 				i = 0
 				CSV.parse(csv_text, headers: true) do |row|
@@ -202,9 +373,11 @@
 				values.sort!
 				self.update_attributes! unique_values: values, status: "found_unique_values"
 			end
+
 			self.update_attributes! status: "Finding unique values..."
 			thread
 		end
+
 		def find_possible_names_in(fn)
 			if (fn != nil && fn!=self.field_names) || self.unique_values==[]
 				if self.unique_values == []
@@ -212,6 +385,7 @@
 				else
 					p "Reuqested possible names, but for different fields than unique fields"
 				end
+
 				thread = self.find_unique_values_in(fn)
 				thread.join
 				find_possible_names_in_separate_thread(fn)
@@ -221,6 +395,7 @@
 			end
 			self.status
 		end
+
 		def find_possible_names_in_separate_thread(fn)
 			thread = Thread.new do
 				values = self.unique_values
@@ -232,6 +407,7 @@
 					if i % 10
 						self.update_attributes! status: "Working: tested #{i}/#{values_length} values..."
 					end
+
 					match = {}
 					match["value"] = possible_name
 					if country = Country.could_be_called(possible_name)[0]
@@ -241,6 +417,7 @@
 						country_name = nil
 						country_iso3 = nil
 					end
+
 					match["match"] = {
 						"name" => country_name,
 						"iso3" => country_iso3
@@ -252,14 +429,19 @@
 			self.update_attributes! status: "Started standardizing values..."
 			thread
 		end
+
+
 		def standardize!(field_names, codes_to_add, values_to_iso3)
 			p field_names, codes_to_add, values_to_iso3
+
 			ready = (field_names.length > 0) && (codes_to_add.length > 0) && (values_to_iso3.keys.length > 0)
 			if !ready
 				self.update_attributes! status: "Failed to start."
 			else
 				self.update_attributes! status: "Starting."
 				new_csv = CSV.generate do |csv|
+
+
 					header =CSV.parse(self.csv_text).first
 					field_names.each do |field|
 						codes_to_add.each do |code|
@@ -268,12 +450,14 @@
 					end
 					p header
 					csv << header
+
 					i = 0
 					CSV.parse(csv_text, headers: true) do |row|
 						i +=1
 						if i % 10 == 0
 							self.update_attributes! status: "Working: processed #{i}/#{self.file_length}"
 						end
+
 						field_names.each do |field|
 							if (desired_iso3 = values_to_iso3[row[field]]) && (desired_country = Country.find_by_iso3(desired_iso3))
 								codes_to_add.each do |code|
@@ -288,20 +472,29 @@
 						csv << row
 					end	
 				end
+
+
 				self.new_csv_text = new_csv
 				self.status = "csv_is_ready"
+				Stat.increment_spreadsheet_cells_served!(field_names * codes_to_add)
 			end
 			self.save
 		end
+
 	end
+
+
 	helpers do 
+
 		def returns_json
 			content_type :json
 		end
+
 		def returns_csv(filename='data')
 			content_type 'application/csv'
 			attachment "#{filename}.csv"
 		end
+
 	# Uncomment and set ENV HTTP_USERNAME and HTTP_PASSWORD to enable password protection with "protected!"
 		def protected!
 			unless authorized?
@@ -316,28 +509,41 @@
 			@auth ||=  Rack::Auth::Basic::Request.new(request.env)
 			(@auth.provided? && @auth.basic? && @auth.credentials && @auth.credentials == AUTH_PAIR)
 		end
+
 	end
+
+
+
 	get "/" do
 		haml :home
 	end
+
+
+
 	get "/standardize" do
 		returns_json
 		query_name = params[:name]
 		matches = Country.could_be_called(query_name)
 		matches.to_json
 	end
+
+
+
 	namespace "/spreadsheets" do 
 		get do 
 			protected!
 			haml :"spreadsheets/index"
 		end
+
 		post do
 			# p "Posting to spreadsheets... #{params.inspect}"
 			if params[:file]
 				# p "Receiving file #{params[:file]}"
+
 				unless params[:file] && (tempfile = params[:file][:tempfile]) && (name = params[:file][:filename])
 					return "Error: couldn't find your file!"
 				end
+
 				if tempfile.size <= MAX_FILE_SIZE
 					this_csv_text = tempfile.read
 					this_spreadsheet = Spreadsheet.create(filename: name.gsub(/\.csv$/, ''), csv_text: this_csv_text )
@@ -348,26 +554,30 @@
 				end
 			end
 		end
+
 		namespace "/:id" do 
 			before do 
 				@spreadsheet = Spreadsheet.find(params[:id])
 			end
+
 			get do 
 				haml :"spreadsheets/show"
 			end
+
 			delete do 
-				Thread.new do
-					sleep(5.minutes)	
-					@spreadsheet.destroy
-				end
+				@spreadsheet.delete_in_5_minutes!
 				redirect to("/spreadsheets")
 			end
+
+
 			get "/unique_values" do
 				returns_json 
+
 				# Starts a background process:
 				if @spreadsheet.unque_values.empty?
 					@spreadsheet.find_unique_values_in(params[:field_names])
 				end
+
 				if @spreadsheet.status == 'found_unique_values'
 					json = JSON.dump(@spreadsheet.found_unique_values) 
 				else 
@@ -377,26 +587,35 @@
 			
 			get "/possible_names" do
 				returns_json 
+
 				if @spreadsheet.possible_names.empty?
 					@spreadsheet.find_possible_names_in(params[:field_names])
 				end
+
 				if @spreadsheet.status == 'found_possible_matches'
 					json = JSON.dump(@spreadsheet.possible_names) 
 				else 
 					json = "{ \"status\" : \"#{@spreadsheet.status}\"}"
 				end
+
 			end
+
 			post "/standardize" do
+
 				Thread.new do
 					@spreadsheet.standardize!(params[:field_names], params[:codes_to_add], params[:values_to_iso3])
 				end
+
+
 				returns_json
 				"{ \"status\" : \"started\"}"
 			end
+
 			get "/status" do
 				returns_json
 				"{ \"status\" : \"#{@spreadsheet.status}\"}"
 			end
+
 			get "/new_csv" do
 				
 				if @spreadsheet.status = "csv_is_ready"
@@ -406,21 +625,36 @@
 					returns_json
 					"{ \"status\" : \"#{@spreadsheet.status}\"}"
 				end
+
 			end
+
 		end
+
 	end
+
+
+
+
+
+
 	namespace "/countries" do
+
+
+
 		before do
 			@countries = Country.sort(:name).all
 		end
+
 		get do 
 			
 			haml :countries
 		end
+
 		get "/json" do 
 			returns_json
 			"[#{@countries.map(&:to_json).join(",")}]"
 		end
+
 		get "/csv" do
 			csv_header =  Country.csv_header 
 			csv_body = Country.all.map(&:to_csv).join
@@ -428,35 +662,48 @@
 			returns_csv("countries")
 			csv_text
 		end
+
+
+
 		namespace "/:iso3" do
 			before do
 				@country = Country.find_by_iso3(params[:iso3]) # or whatever
 			end
+
 			get { haml :country }
+
 			get "/json" do
 				returns_json
 				@country.to_json
 			end
+
 			get "/edit" do 
 				protected!
 				haml :country_edit
 			end
+
 			post do
 				protected!
 				@country.update_attributes!(params[:country])
 				redirect to("/countries/#{@country.iso3}")
 			end
+
+
+
 			namespace "/aliases" do
 				get do
 					returns_json 
 					@country.aliases.to_json
 				end
+
 				post do
 					returns_json
 					# post { alias: "your_alias"}
 					@country.add_alias!(params[:alias])
 					redirect to("/countries/#{@country.iso3}")
+
 				end
+
 				delete do
 					protected!
 					returns_json
@@ -465,7 +712,11 @@
 				end
 			end
 		end
+
 	end
+
+
+
 	get "/initialize" do
 		protected!
 		if Country.all.count == 0
@@ -480,6 +731,7 @@
 				aliases << row["aiddata_name"]
 				aliases << row["geonames_name"]
 				aliases << row["oecd_name"]
+
 				Country.create({
 					name: row["name"],
 					iso3: row["iso3"],
@@ -503,7 +755,14 @@
 		end
 		Country.count
 	end
+
 	get "/wipe" do
 		protected!
 		Country.find_each(&:destroy)
 	end
+
+
+
+
+
+

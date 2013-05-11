@@ -6,17 +6,22 @@
 	%script{src: '/bootstrap/js/bootstrap.min.js' }
 	%script{src: '/javascripts/bootstrap-sortable.js'}
 	%script{src: '/javascripts/underscore.js'}
+	:css
+		.modal {
+			width: 800px !important;
+			margin-left: -400px !important;
+		}
 	%script
 		= CoffeeScript.compile File.read(settings.root + "/public/coffeescripts/application.coffee")
 	%title
-		Country Standardizer
+		Countrysaurus
 %body
 	%header
 		.container
 			%nav.navbar
 				.navbar-inner
 					%span.brand
-						Country Standardizer
+						Countrysaurus
 					%ul.nav
 						%li
 							%a{href: "/"}
@@ -57,4 +62,24 @@
 									= "."
 								%p
 									Returns a JSON array of country objects.
+						%li.dropdown
+							%a.dropdown-toggle{"data-toggle" => "dropdown"}
+								Stats
+								%b.caret
+							%ul.dropdown-menu{style: "padding:8px;"}
+								%li
+									%strong
+										Countries Standardized:
+									= Stat.find_or_initialize_by_name("countries_standardized").value
+								%li.divider
+								%li
+									%strong
+										Spreadsheet Cells Served:
+									= Stat.find_or_initialize_by_name("spreadsheet_cells_served").value
+								%li.divider
+
+								%li.text-success
+									%strong
+										Human hours saved:
+									= Stat.find_or_initialize_by_name("human_hours_saved").value
 	=yield

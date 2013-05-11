@@ -12,6 +12,27 @@
 		.span12
 			.alert.alert-info
 				%p Working...
+	.row-fluid.step.step0
+		.span12
+			.alert.alert-error
+				%p
+					%strong
+						Uh oh &mdash;
+					I couldn't handle your file,
+					%em
+						= "#{@spreadsheet.filename}."
+					Are you sure it was:
+					%ul.unstyled
+						%li 
+							A valid CSV file
+							%span.muted
+								See the 
+								%a{href: "/"}
+									home page
+								for instructions on createing a CSV.
+						%li
+							Less than 10 megabytes
+
 	.row-fluid.step.step1
 		.span12.container-fluid
 			.row-fluid
@@ -176,7 +197,10 @@
 		$('.step' + step).show()
 		$('.step:not(.step' + step + '), .working').hide()
 
-	jump_to_step 1
+	if "#{@spreadsheet.status}" != "invalid_file"
+		jump_to_step 1
+	else
+		jump_to_step 0
 
 	@this_url = "/spreadsheets/#{@spreadsheet.id}"
 	

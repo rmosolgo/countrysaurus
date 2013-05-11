@@ -3,7 +3,9 @@
 	.row-fluid
 		.span12
 			%h1.page-header
-				Country Standardizer
+				Countrysaurus
+				%small
+					(as in "country" + "thesaurus", of course!)
 	.row-fluid
 		.span8
 			%p
@@ -14,26 +16,43 @@
 			%ol
 				%li
 					%p 
-						Upload your spreadsheet using the form below.
+						Upload your 
+						%strong
+							CSV spreadsheet 
+						using the form below.
+					%p.muted
+						Not sure how to create a 
+						%strong
+							CSV spreadsheet?
+					%p.muted
+						&rarr;
+						%a{href: "#", onclick: "excel_modal()"}
+							Use MS Excel
+						OR
+						%a{href: "#", onclick: "google_modal()"}
+							Use Google Docs
 				%li
 					%p 
 						Choose the columns you want to standardize.
 				%li
 					%p 
-						The application will search for country names.
+						Countrysaurus will search for country names.
 				%li
 					%p 
-						The application will show you its best guesses, and you can change them (and automatically add your recommendations to the master database).
+						Countrysaurs will show you its best guesses, and you can change them (and 
+						%em
+							automatically add your recommendations 
+						to the master database).
 				%li
 					%p 
 						Choose the codes you want to add for each of your selected fields:
 					%p.muted
 						%strong
-							Options:
+							Codes in the database:
 						= Country.canonical_keys.join ", "
 				%li
 					%p 	
-						Download your spreadsheet
+						Countrysaurus will give you a link to download your new, standardized spreadsheet.
 					%p.muted
 						Your spreadsheet is removed from the server after 5 minutes.
 
@@ -45,5 +64,76 @@
 			.alert.alert-success
 				%br
 				!= haml :"spreadsheets/_upload"
+
+#excel_modal.modal.hide.fade
+	.modal-header
+		%button.close{type: "button", "data-dismiss" => "modal"}
+			&times;
+		%h3 
+			Use Microsoft Excel to create a CSV spreadsheet
+	.modal-body
+		%p 
+			Open your spreadsheet in Excel, then click 
+			%strong
+				"Save As:"
+		%img{src:"/images/csv_save_as.png"}
+		%hr
+		%p
+			Then click
+			%strong
+				"Save as Type:"
+			and select 
+			%strong
+				"CSV (commadelimited, *.csv)"
+		%img{src: "/images/csv_choose_format.png"}
+		%hr
+		%p
+			Excel will ask you if you 
+			%em
+				really want 
+			to save your spreadsheet as CSV. Click 
+			%strong
+				OK:
+		%img{src: "/images/csv_click_ok.png"}
+		%hr
+		%p.text-success
+			%strong 
+				Then, load the new file in to Countrysaurus!
+	.modal-footer
+		%button.btn.btn-info{type: "button", "data-dismiss" => "modal"}
+			Close
+
+#google_modal.modal.hide.fade
+	.modal-header
+		%button.close{type: "button", "data-dismiss" => "modal"}
+			&times;
+		%h3 
+			Use Google Docs to create a CSV spreadsheet
+	.modal-body
+		%p 
+			Click 
+			%strong
+				"File"
+			&rarr;
+			%strong
+				"Download as",
+			then select 
+			%strong
+				"Comma Separated Values (.csv, current sheet)"
+		%img{src: "/images/google_docs_csv.png"}
+		%hr
+		%p.text-success
+			%strong
+				Then, upload your file to Countrysaurus!
+	.modal-footer
+		%button.btn.btn-info{type: "button", "data-dismiss" => "modal"}
+			Close
+
+:coffeescript
+	@excel_modal = ->
+		$('#excel_modal').modal("show")
+
+	@google_modal = ->
+		$('#google_modal').modal("show")
 
 					

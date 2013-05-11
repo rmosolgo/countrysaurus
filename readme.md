@@ -96,6 +96,75 @@ An extra string method -- to remove diacritics:
 	end
 
 ```
+### Stats 
+
+Keep track of how much work we've done, and show it to users:
+- countries standardized 
+- spreadsheet cells served
+- --> Human hours saved
+
+```Ruby
+	class Stat
+		include MongoMapper::Document
+		key :name, String
+		key :value, Float
+
+		def self.calculate_human_hours_saved!
+			countries_standardized = Stat.find_or_create_by_name("countries_standardized").value || 0
+			spreadsheet_cells_served = Stat.find_or_create_by_name("spreadsheet_cells_served").value || 0
+			human_hours_saved = Stat.find_or_create_by_name("human_hours_saved")
+
+			new_time_in_seconds = 0
+			# 30 seconds per country?
+			new_time_in_seconds += (countries_standardized * 30)
+			# 1 second per cell
+			new_time_in_seconds += (spreadsheet_cells_served * 1)
+
+			new_time_in_hours = ((new_time_in_seconds/60)/60).round(2)
+			human_hours_saved.update_attributes! value: new_time_in_hours
+		end
+		
+		def self.increment_countries_standardized!
+			cs = Stat.find_or_create_by_name("countries_standardized")
+			count = cs.value || 0
+			count += 1
+			cs.update_attributes! value: count 
+			Stat.calculate_human_hours_saved!
+		end
+
+		def self.increment_spreadsheet_cells_served!(cells=1)
+			cs = Stat.find_or_create_by_name("spreadsheet_cells_served")
+			count = cs.value || 0
+			count += cells
+			cs.update_attributes! value: count 
+			Stat.calculate_human_hours_saved!
+		end
+		
+		def self.increment_aliases_added!
+			cs = Stat.find_or_create_by_name("aliases_added")
+			count = cs.value || 0
+			count += 1
+			cs.update_attributes! value: count 
+			Stat.calculate_human_hours_saved!
+		end
+
+		def self.decrement_aliases_added!
+			cs = Stat.find_or_create_by_name("aliases_added")
+			count = cs.value || 0
+			count -= 1
+			if count < 0
+				count = 0
+			end
+
+			cs.update_attributes! value: count 
+			Stat.calculate_human_hours_saved!
+		end
+	end
+
+
+
+```
+
 
 ### Country
 
@@ -189,6 +258,16 @@ Store the aliases WITHOUT special characters:
 			downcased_name = name.downcase 
 			new_aliases = []
 			
+			# "The"
+			countries_with_the = [
+				"Bahamas", "United States", "Sudan", "Ukraine",
+				"United Kingdom", "United Arab Emirates"
+			].map(&:downcase)
+			if countries_with_the.include?(downcased_name)
+				new_aliases << "the #{downcased_name}"
+			end
+
+
 			# St. Nevis 
 			if downcased_name =~ /saint/ || downcased_name =~ /st\./
 				new_aliases << downcased_name.gsub(/saint|st\./, 'st')
@@ -227,14 +306,18 @@ Store the aliases WITHOUT special characters:
 
 		def add_alias!(new_alias)
 			unless aliases.include?(new_alias)
+				Stat.increment_aliases_added!
 				aliases << new_alias
 				save 
 			end
 		end
 
 		def remove_alias!(bad_alias)
-			aliases.delete(bad_alias)
-			save
+			if aliases.include?(bad_alias)
+				Stat.decrement_aliases_added!
+				aliases.delete(bad_alias)
+				save
+			end
 		end
 ```
 
@@ -266,6 +349,10 @@ Standardize with Country.could_be_called(possible_name)
 				end
 			end
 			p "Tried #{possible_name}, found #{matches.length} matches in #{(Time.new - start).round(3)} seconds"
+			if matches.length > 0
+				Stat.increment_countries_standardized!
+			end
+
 			matches
 
 		end
@@ -327,9 +414,25 @@ This is for holding spreadsheets while they're being worked on. I'll dump it whe
 
 		before_create :set_field_names
 		def set_field_names
-			self.field_names = CSV.parse(self.csv_text).first
-			self.file_length = CSV.parse(self.csv_text).length
+			begin
+				self.field_names = CSV.parse(self.csv_text).first
+				self.file_length = CSV.parse(self.csv_text).length
+			rescue
+				self.status = "invalid_file"
+				self.delete_in_5_minutes!
+			end
 		end
+
+		def delete_in_5_minutes!
+			if self.status != "deleting"
+				self.update_attributes! status: "deleting"
+				Thread.new do
+					sleep(5.mins)
+					self.destroy
+				end
+			end
+		end
+
 
 ```
 
@@ -476,6 +579,7 @@ Then do it for all rows:
 
 				self.new_csv_text = new_csv
 				self.status = "csv_is_ready"
+				Stat.increment_spreadsheet_cells_served!(field_names * codes_to_add)
 			end
 			self.save
 		end
@@ -585,10 +689,7 @@ Endpoint for standardization API:
 			end
 
 			delete do 
-				Thread.new do
-					sleep(5.minutes)	
-					@spreadsheet.destroy
-				end
+				@spreadsheet.delete_in_5_minutes!
 				redirect to("/spreadsheets")
 			end
 
