@@ -1,4 +1,4 @@
-# coding: utf-8
+	# coding: utf-8
 	require 'rubygems'
 	require 'bundler/setup'
 	require 'sinatra'
@@ -298,26 +298,45 @@
 		key :csv_text, String, required: true 
 		key :new_csv_text, String 
 		key :file_length, Integer
-		key :status, String
+		key :status, String, default: "Initialized."
+		key :percent, Float, default: 0
 		key :field_names, Array
 		key :unique_values, Array
 		key :possible_names, Array
 
+		@@statuses = {
+			deleting: "deleting",
+			invalid_file: "invalid_file",
+			found_unique_values: "found_unique_values",
+			found_possible_matches: "found_possible_matches",
+			csv_is_ready: "csv_is_ready"
 
-		before_create :set_field_names
+		}
+
+		def self.statuses
+			@@statuses
+		end
+
+		after_create :set_field_names
 		def set_field_names
-			begin
-				self.field_names = CSV.parse(self.csv_text).first
-				self.file_length = CSV.parse(self.csv_text).length
-			rescue
-				self.status = "invalid_file"
-				self.delete_in_5_minutes!
+			thread = Thread.new do
+				begin
+					self.update_attributes! status: "Parsing CSV and finding field names."
+					self.field_names = CSV.parse(self.csv_text).first
+					self.file_length = CSV.parse(self.csv_text).length
+					self.status = "valid_file"
+				rescue
+					self.status =  "invalid_file"
+					self.delete_in_5_minutes!
+				end
+				self.save
 			end
+			thread
 		end
 
 		def delete_in_5_minutes!
 			if self.status != "deleting"
-				self.update_attributes! status: "deleting"
+				self.update_attributes! status:  "deleting"
 				Thread.new do
 					sleep(5.mins)
 					self.destroy
@@ -329,9 +348,11 @@
 
 
 
-		def find_unique_values_in(fn)
-			
+		def find_unique_values_in(fn, then_find_names=false)
+			self.update_attributes! status: "Finding unique values in #{self.file_length} rows.", percent: 0
+
 			thread = Thread.new do
+
 				if !fn.is_a? Array 
 					fn = [fn]
 				end
@@ -343,7 +364,7 @@
 				CSV.parse(csv_text, headers: true) do |row|
 					i += 1
 					if i % 10 == 0
-						self.update_attributes! status: "Working: searched for unique values in #{i}/#{self.file_length} rows..."
+						self.update_attributes! percent: (i/self.file_length) * 100
 					end
 					fn.each do |field|
 						unless (values.include?(row[field])) || ([nil, ""].include?(row[field]))
@@ -352,62 +373,60 @@
 					end
 				end	
 				values.sort!
-				self.update_attributes! unique_values: values, status: "found_unique_values"
+
+				self.update_attributes! unique_values: values, status: "found_unique_values", percent: 100
+				
+
+				if then_find_names
+					self.find_possible_names_in(fn)
+				end
+
+
 			end
 
-			self.update_attributes! status: "Finding unique values..."
 			thread
 		end
 
+
 		def find_possible_names_in(fn)
-			if (fn != nil && fn!=self.field_names) || self.unique_values==[]
-				if self.unique_values == []
-					p "Requested possible names, but unique values weren't set yet..."
-				else
-					p "Reuqested possible names, but for different fields than unique fields"
+
+			fn = fn || self.field_names
+			ready = (self.unique_values != nil)
+
+			if ready
+				self.update_attributes! status: "Finding names for #{self.unique_values.length} values."
+
+				thread = Thread.new do
+					values = self.unique_values
+					possible_matches = []
+					i = 0
+					values_length = values.length
+					values.each do |possible_name|
+						i += 1.0
+						self.update_attributes! percent: (i/values_length) * 100
+
+						match = {}
+						match["value"] = possible_name
+						if country = Country.could_be_called(possible_name)[0]
+							country_name = country.name
+							country_iso3 = country.iso3
+						else
+							country_name = nil
+							country_iso3 = nil
+						end
+
+						match["match"] = {
+							"name" => country_name,
+							"iso3" => country_iso3
+						}
+						possible_matches << match
+					end	
+					self.update_attributes! possible_names: possible_matches, status: "found_possible_matches", percent: 100
 				end
-
-				thread = self.find_unique_values_in(fn)
-				thread.join
-				find_possible_names_in_separate_thread(fn)
 			else
-				p "Requested possible names, field_names and values already found."
-				find_possible_names_in_separate_thread(fn)
+				thread = self.find_unique_values_in(fn, true)
 			end
-			self.status
-		end
 
-		def find_possible_names_in_separate_thread(fn)
-			thread = Thread.new do
-				values = self.unique_values
-				possible_matches = []
-				i = 0
-				values_length = values.length
-				values.each do |possible_name|
-					i += 1
-					if i % 10
-						self.update_attributes! status: "Working: tested #{i}/#{values_length} values..."
-					end
-
-					match = {}
-					match["value"] = possible_name
-					if country = Country.could_be_called(possible_name)[0]
-						country_name = country.name
-						country_iso3 = country.iso3
-					else
-						country_name = nil
-						country_iso3 = nil
-					end
-
-					match["match"] = {
-						"name" => country_name,
-						"iso3" => country_iso3
-					}
-					possible_matches << match
-				end	
-				self.update_attributes! possible_names: possible_matches, status: "found_possible_matches"
-			end
-			self.update_attributes! status: "Started standardizing values..."
 			thread
 		end
 
@@ -415,53 +434,67 @@
 		def standardize!(field_names, codes_to_add, values_to_iso3)
 			p field_names, codes_to_add, values_to_iso3
 
+
 			ready = (field_names.length > 0) && (codes_to_add.length > 0) && (values_to_iso3.keys.length > 0)
 			if !ready
 				self.update_attributes! status: "Failed to start."
 			else
-				self.update_attributes! status: "Starting."
-				new_csv = CSV.generate do |csv|
+				thread = Thread.new do 
+					cells_to_add = field_names.length * codes_to_add.length * self.file_length
+					self.update_attributes! status: "Adding #{cells_to_add} values to your spreadsheet."
+					new_csv = CSV.generate do |csv|
 
 
-					header =CSV.parse(self.csv_text).first
-					field_names.each do |field|
-						codes_to_add.each do |code|
-							header << "#{field}_#{code}"
-						end
-					end
-					p header
-					csv << header
-
-					i = 0
-					CSV.parse(csv_text, headers: true) do |row|
-						i +=1
-						if i % 10 == 0
-							self.update_attributes! status: "Working: processed #{i}/#{self.file_length}"
-						end
-
+						header =CSV.parse(self.csv_text).first
 						field_names.each do |field|
-							if (desired_iso3 = values_to_iso3[row[field]]) && (desired_country = Country.find_by_iso3(desired_iso3))
-								codes_to_add.each do |code|
-									row << (desired_country[code] || "")
-								end
-							else
-								codes_to_add.length.times do 
-									row << ""
-								end
+							codes_to_add.each do |code|
+								header << "#{field}_#{code}"
 							end
 						end
-						csv << row
-					end	
+						p header
+						csv << header
+
+						i = 0
+						CSV.parse(csv_text, headers: true) do |row|
+							i +=1
+							if i % 10 == 0
+								self.update_attributes! percent: (i/self.file_length)*100
+							end
+
+							field_names.each do |field|
+								if (desired_iso3 = values_to_iso3[row[field]]) && (desired_country = Country.find_by_iso3(desired_iso3))
+									codes_to_add.each do |code|
+										row << (desired_country[code] || "")
+									end
+								else
+									codes_to_add.length.times do 
+										row << ""
+									end
+								end
+							end
+							csv << row
+						end	
+					end
+
+
+					self.update_attributes! new_csv_text: new_csv, status: "csv_is_ready", percent: 100
+					Stat.increment_spreadsheet_cells_served!(cells_to_add)
 				end
-
-
-				self.new_csv_text = new_csv
-				self.status = "csv_is_ready"
-				Stat.increment_spreadsheet_cells_served!(field_names * codes_to_add)
 			end
-			self.save
 		end
 
+
+		def serializable_hash(options={})
+			if options == nil
+				options = {}
+			end
+			fields_to_show = [
+				:filename, :file_length, :_id, :status, :percent,
+				:field_names, :unique_values, :possible_names
+			]
+			exclude = [:csv_text, :new_csv_text]
+			super({except: exclude}.merge(options))
+		end
 	end
 
 
@@ -485,7 +518,7 @@
 			end
 		end
 		# AUTH_PAIR = [ENV['HTTP_USERNAME'], ENV['HTTP_PASSWORD']]
-		AUTH_PAIR = ["aiddata", "a1dd4t4"]
+		AUTH_PAIR = ["aiddata", (ENV['HTTP_PASSWORD'] ||  "aiddata")]
 		def authorized?
 			@auth ||=  Rack::Auth::Basic::Request.new(request.env)
 			(@auth.provided? && @auth.basic? && @auth.credentials && @auth.credentials == AUTH_PAIR)
@@ -529,7 +562,7 @@
 					this_csv_text = tempfile.read
 					this_spreadsheet = Spreadsheet.create(filename: name.gsub(/\.csv$/, ''), csv_text: this_csv_text )
 					p "Ok, saved #{this_spreadsheet.filename}!"
-					redirect to("/spreadsheets/#{this_spreadsheet.id}")
+					redirect to("/spreadsheets/#{this_spreadsheet.id}/process")
 				else
 					return "Error: that file is too big! Try splitting into multiple files."
 				end
@@ -542,7 +575,27 @@
 			end
 
 			get do 
+				returns_json
+				@spreadsheet.to_json
+			end
+
+			put do 
+				returns_json
+				@spreadsheet.update_attributes! params
+				@spreadsheet.to_json
+			end
+
+
+			get "/process" do 
 				haml :"spreadsheets/show"
+				# 1) User: 			Choose field names
+				# 2) Background: 	Find Unique Values
+				# 3) Background: 	Match those values
+				# 4) User: 			Confirm those matches
+				# 5) User: 			Pick codes to add
+				# 6) Background: 	Create new CSV
+				# 7) User: 			Download CSV
+				# 8) Background: 	Delete CSV in 5 mins
 			end
 
 			delete do 
@@ -553,54 +606,34 @@
 
 			get "/unique_values" do
 				returns_json 
-
 				# Starts a background process:
-				if @spreadsheet.unque_values.empty?
-					@spreadsheet.find_unique_values_in(params[:field_names])
-				end
+				@spreadsheet.find_unique_values_in(params[:field_names])
 
-				if @spreadsheet.status == 'found_unique_values'
-					json = JSON.dump(@spreadsheet.found_unique_values) 
-				else 
-					json = "{ \"status\" : \"#{@spreadsheet.status}\"}"
-				end
+				@spreadsheet.to_json
 			end
 			
 			get "/possible_names" do
 				returns_json 
 
-				if @spreadsheet.possible_names.empty?
-					@spreadsheet.find_possible_names_in(params[:field_names])
-				end
+				@spreadsheet.find_possible_names_in(params[:field_names])
 
-				if @spreadsheet.status == 'found_possible_matches'
-					json = JSON.dump(@spreadsheet.possible_names) 
-				else 
-					json = "{ \"status\" : \"#{@spreadsheet.status}\"}"
-				end
+				@spreadsheet.to_json
 
 			end
 
 			post "/standardize" do
 
-				Thread.new do
-					@spreadsheet.standardize!(params[:field_names], params[:codes_to_add], params[:values_to_iso3])
-				end
+				@spreadsheet.standardize!(params[:field_names], params[:codes_to_add], params[:values_to_iso3])
 
 
 				returns_json
-				"{ \"status\" : \"started\"}"
-			end
-
-			get "/status" do
-				returns_json
-				"{ \"status\" : \"#{@spreadsheet.status}\"}"
+				@spreadsheet.to_json
 			end
 
 			get "/new_csv" do
 				
 				if @spreadsheet.status = "csv_is_ready"
-					returns_csv("#{@spreadsheet.filename}_standardized")
+					returns_csv("#{@spreadsheet.filename}_with_countrysaurus")
 					@spreadsheet.new_csv_text
 				else
 					returns_json
