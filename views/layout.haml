@@ -6,7 +6,21 @@
 	%script{src: '/bootstrap/js/bootstrap.min.js' }
 	%script{src: '/javascripts/bootstrap-sortable.js'}
 	%script{src: '/javascripts/underscore.js'}
+	%script{src: '/javascripts/backbone.js'}
+	%script{src: '/javascripts/backbone.marionette.js'}
+
 	:css
+		body {
+			background-image: url('/images/background_1.jpg');
+		}
+
+		.page-content {
+			background-color: rgba(255,255,255, 1);
+			padding: 10px;
+			box-shadow: 0px 0px 40px black;
+
+		}
+
 		.modal {
 			width: 800px !important;
 			margin-left: -400px !important;
@@ -82,4 +96,5 @@
 									%strong
 										Human hours saved:
 									= Stat.find_or_initialize_by_name("human_hours_saved").value
-	=yield
+	.page-content.container
+		=yield

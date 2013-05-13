@@ -1,72 +1,19 @@
-.container
+.row-fluid
+	.span12
+		%h2.page-header
+			Standardize Your Spreadsheet
+			%small
+				= @spreadsheet.filename
+		
+
+.row-fluid
+	.container-fluid#main
+
+%hr.row-fluid
+
+%script#codes-template{type: "text/template"}
 	.row-fluid
-		.span12
-			%h2.page-header
-				Standardize Your Spreadsheet
-				%small
-					= @spreadsheet.filename
-				%small.pull-right
-					%a{href: "#", onclick: "jump_to_step(1)"}
-						Start Over		
-	.row-fluid.working
-		.span12
-			.alert.alert-info
-				%p Working...
-	.row-fluid.step.step0
-		.span12
-			.alert.alert-error
-				%p
-					%strong
-						Uh oh &mdash;
-					I couldn't handle your file,
-					%em
-						= "#{@spreadsheet.filename}."
-					Are you sure it was:
-					%ul.unstyled
-						%li 
-							A valid CSV file
-							%span.muted
-								See the 
-								%a{href: "/"}
-									home page
-								for instructions on createing a CSV.
-						%li
-							Less than 10 megabytes
-
-	.row-fluid.step.step1
-		.span12.container-fluid
-			.row-fluid
-				%h4 
-					I found these field names. 
-					%span.text-info
-						Which ones have country names in them?
-				- number_of_field_names = @spreadsheet.field_names.length
-				- ul_width = 4
-				- ul_length = 15
-				- @spreadsheet.field_names.each_slice(ul_length * ul_width) do |big_slice|
-					.row-fluid
-						- big_slice.each_slice(ul_length) do |slice|
-							%ul.unstyled{class: "span#{12/ul_width}"}
-								- slice.each do |name|
-									%li
-										%p.field-name.btn.btn-block{onclick: "$(this).toggleClass('btn-info')"}
-											= name
-			.row-fluid
-				%p.btn.btn-success{onclick: "to_step2()"}
-					Continue &rarr;
-	.row-fluid.step.step2
-		.span12.container-fluid
-			%h4.row-fluid
-				I found these country names and tried to match them. 
-				%span.text-info
-					Do any of them need more help?
-			%ul#matches.unstyled.row-fluid
-
-			.row-fluid
-				%p.btn.btn-success{onclick: "to_step3()"}
-					Continue &rarr;
-	.row-fluid.step.step3
-		%h4 Which country codes/names should I add to your data?
+		%h4 Which country codes/names should Countrysaurus add to your data?
 		%table.table.table-bordered
 			- Country.canonical_keys.each_slice(8) do |slice|
 				%ul.unstyled.span3
@@ -75,13 +22,16 @@
 							%span.code.btn.btn-block{onclick: "$(this).toggleClass('btn-info')"}
 								= key.to_s
 		.row-fluid
-			%p.btn.btn-success{onclick: "to_step4()"}
+			%p.btn.btn-success.continue
 				Continue &rarr;
-	.row-fluid.step.step4
+
+%script#download-template{type: "text/template"}
+
+	.row-fluid
 		.span12.container-fluid
 			.row-fluid
 				%h4.span12	
-					Ok, I joined in standardized country names and codes!
+					Ok, Countrysaurus joined in standardized country names and codes!
 			.row-fluid
 				.span12
 					.alert.alert-warning
@@ -89,34 +39,18 @@
 							%strong
 								Warning!
 						%p
-							In order to save space, I'm going to delete your spreadsheet 
+							In order to save space, Countrysaurus going to delete your spreadsheet 
 							%em
-								5 minutes after
-							you close this page.
+								5 minutes from now.
 						%p
 							So, 
 							%strong
-								download and verify your spreadsheet,
-							and click "Start over" above if you need to start over.
+								download your spreadsheet!
 			.row-fluid
-				%a.btn.btn-success{href: "/spreadsheets/#{@spreadsheet.id}/new_csv"}
+				%a.btn.btn-success.download{href: "/spreadsheets/#{@spreadsheet.id}/new_csv"}
 					Download! 
 
-%script#match-template{type: "text/template"}
-	%li.match
-		%strong>
-			"
-			%span.value<>
-				<%= value %>
-			" :
-		%span.first-guess{style: "display:none;"}<>
-			<%= match["iso3"] %>
-		%select.countries{ onchange: "is_this_another_name(this)"}
-			%option
 
-			<%= Countries.as_options(match["iso3"]) %>
-		%p.suggest.alert.alert-info{style: "display:none;"}
-		%p.confirm.text-success{style: "display:none;"}
 
 %script#suggest-template{type: "text/template"}
 	.container-fluid
@@ -134,15 +68,94 @@
 			.span6
 				%a.btn.btn-warning{onclick: "$(this).closest('.suggest').slideUp()"}
 					No, ignore it.
+%script#error-template{type: "text/template"}
+	.row-fluid
+		.span12
+			.alert.alert-error
+				%p
+					%strong
+						Uh oh &mdash;
+					I couldn't handle your file,
+					%em
+						= "#{@spreadsheet.filename}."
+					Are you sure it was:
+					%ul.unstyled
+						%li 
+							A valid CSV file 
+							%br
+							%span.muted
+								See the 
+								%a{href: "/"}
+									home page
+								for instructions on createing a CSV.
+						%li 
+							%strong
+								and
+						%li
+							Less than 10 megabytes
+
+%script#status-template{type: "text/template"}
+	.alert.alert-info
+		.row-fluid
+			%h3 Hard at work!
+		.row-fluid
+			.span12
+				%p 
+					<%= status %>
+		.row-fluid
+			.span12
+				.progress
+					! <div class='bar' style='width:<%= percent %>%;'></div> 
+
+%script#fields-template{type: "text/template"}
+	.row-fluid.step.step1
+		.span12.container-fluid
+			.row-fluid
+				%h4 
+					Countrysaurs found these fields in your spreadsheet. 
+					%span.text-info
+						Which ones have country names in them?
+				%ul.unstyled.span4
+					<% field_names.forEach(function(fn) { %>
+					%li
+						%p.field-name.btn.btn-block{onclick: "$(this).toggleClass('btn-info')"}
+							<%= fn %>
+					<% }) %>
+			.row-fluid
+				%p.btn.btn-success.continue
+					Continue &rarr;
+%script#matches-template{type: "text/template"}
+	.row-fluid
+		.span12.container-fluid
+			%h4.row-fluid
+				Countrysaurus found these country names and tried to match them. 
+				%span.text-info
+					Did he match them all correctly?
+			%ul#matches.unstyled.row-fluid
+				<% possible_names.forEach(function(possibility) { %>
+				%li.match
+					%strong>
+						"
+						%span.value<>
+							<%= possibility.value %>
+						" :
+					%span.first-guess{style: "display:none;"}
+						<%= possibility.match["iso3"] %>
+					%select.countries{ onchange: "is_this_another_name(this)"}
+						%option
+
+						<%= window.Countries.as_options(possibility.match["iso3"]) %>
+					%p.suggest.alert.alert-info{style: "display:none;"}
+					%p.confirm.text-success{style: "display:none;"}
+				<% }) %>
+
+			.row-fluid
+				%p.btn.btn-success.continue
+					Continue &rarr;
 
 
 
 :coffeescript
-
-	@field_names = []
-	@values_to_iso3 = []
-	@codes_to_add = []
-
 	@Countries = []
 	Countries.as_options = (selected) ->
 		this.map((c) ->
@@ -154,12 +167,184 @@
 			"<option value='" + iso3 + "' " + is_selected + ">" + c["name"] + "</option>" 
 		).join("")
 
+	@fetch_countries = ->
+		$.get("/countries/json", (data) ->
+			(Countries.push(d) for d in data)
+			# console.log "received", Countries			
+			)
+	
+	@SS = new Marionette.Application()
 
-	$.get("/countries/json", (data) ->
-		(Countries.push(d) for d in data)
-		console.log "received", Countries			
-		)
+	$(->
+		SS.start()
+		# console.log "Started"
+		window.ss = new SS.Spreadsheet({"_id" : "#{@spreadsheet._id}"})
+		fetch_countries()
 
+	)
+
+	SS.addRegions(
+		main_region: "#main"
+	)
+
+	SS.Spreadsheet = Backbone.Model.extend(
+		idAttribute: "_id"
+		urlRoot: "/spreadsheets"
+		
+		initialize: ->
+			this.fetch(
+				success: (model) ->
+					# console.log "fetched model", model.toJSON() 
+					model.start_working()
+			)
+
+		start_working: ->
+			working = new SS.SpreadsheetStatusView({model: this})
+			SS.main_region.show(working)
+
+		choose_fields: ->
+			fields = new SS.SpreadsheetFieldsView({model: this})
+			SS.main_region.show(fields)
+
+		find_possible_names: ->
+			$.get(this.url() + "/possible_names")
+
+		verify_matches: ->
+			matches = new SS.SpreadsheetMatchesView({model: this})
+			SS.main_region.show(matches)
+
+		choose_codes_to_add: ->
+			codes = new SS.SpreadsheetCodesView({model: this})
+			SS.main_region.show(codes)
+
+		standardize: ->
+			standardize_data = 
+				codes_to_add: this.get("codes_to_add")
+				field_names: this.get("field_names")
+				values_to_iso3: this.get("values_to_iso3")
+
+			$.post(this.url() + "/standardize", standardize_data, (data) -> console.log(data) )
+			this.start_working()
+
+		offer_csv: ->
+			download = new SS.SpreadsheetDownloadView({model: this})
+			SS.main_region.show(download)
+
+		show_invalid_error_message: ->
+			error_msg = new SS.SpreadsheetErrorView()
+			SS.main_region.show(error_msg)
+	)
+
+	SS.SpreadsheetDownloadView = Backbone.Marionette.ItemView.extend(
+		template: "#download-template"
+		events: 
+			"click .download" : "send_delete_request"
+		send_delete_request: ->
+			this.model.destroy()
+
+	)
+	SS.SpreadsheetCodesView = Backbone.Marionette.ItemView.extend(
+		template: "#codes-template"
+		events: 
+			"click .continue" : "start_creating_spreadsheet"
+
+		start_creating_spreadsheet: ->
+			codes_to_add = []
+			$('.code.btn-info').each(() ->
+				codes_to_add.push($(this).text().trim())
+			)
+			this.model.set("codes_to_add", codes_to_add)
+			this.model.standardize()
+
+	)
+	
+	SS.SpreadsheetMatchesView = Backbone.Marionette.ItemView.extend(
+		template: "#matches-template"
+		events:
+			"click .continue" : "save_matches"
+
+		save_matches: ->
+			values_to_iso3 = {}
+			$('.match').each(() ->
+				$el = $(this)
+				value = $el.find('.value').text().trim()
+				iso3 = $el.find('.countries :selected').val()
+				values_to_iso3[value] = iso3
+			)
+			# console.log "values_to_iso3:", values_to_iso3
+			this.model.set("values_to_iso3", values_to_iso3)
+			this.model.choose_codes_to_add()
+	)
+
+	SS.SpreadsheetFieldsView = Backbone.Marionette.ItemView.extend(
+		template: "#fields-template"
+		events: 
+			"click .continue" : "send_field_names"
+
+		send_field_names: ->
+			field_names = []
+			$('.field-name.btn-info').each(() ->
+				field_names.push $(this).text().trim()
+			)
+			# console.log "fields:", field_names
+			
+			$.get(this.model.url() + "/unique_values", {field_names, field_names})
+			
+			this.model.save("field_names", field_names,
+				success: (model) ->
+					model.start_working() 
+				)
+
+	)
+
+	SS.SpreadsheetStatusView = Backbone.Marionette.ItemView.extend(
+		template: "#status-template"
+
+		initialize: ->
+			
+			model = this.model
+			view = this
+			view.interval = setInterval(->
+				view.poll()
+			, 300)
+			# console.log this
+
+
+		onBeforeClose: ->
+			console.log "closing, killing:", this.interval
+			clearInterval(this.interval)
+
+		poll: () ->
+			view = this
+			this.model.fetch(
+				success:  (model) ->
+					status = model.get("status")
+					# console.log status
+					if (status is "invalid_file")
+						model.show_invalid_error_message()
+					else if status is "valid_file"
+						model.choose_fields()
+					else if status is "found_unique_values"
+						model.find_possible_names()
+						view.render()
+					else if status is "found_possible_matches"
+						model.verify_matches()
+					else if status is "csv_is_ready"
+						model.offer_csv()
+
+					else
+						view.render()
+
+			)
+
+			
+
+	)
+
+	SS.SpreadsheetErrorView = Backbone.Marionette.ItemView.extend(
+		template: "#error-template"
+	)
+	
 	@is_this_another_name = (el) ->
 		$el = $(el)
 		target = $el.siblings('.suggest')
@@ -183,121 +368,15 @@
 		$el = $(el)
 		iso3 = $(el).find('.user_choice').text().trim()
 		alias = $(el).find('.original_value').text().trim()
+		confirm = $el.closest('.suggest').siblings('.confirm')
+		confirm.text("Saving this new name...")
+
 		$.post(
 			"/countries/" + iso3 + "/aliases",
 			{alias: alias},
 			(data) ->
-				confirm = $el.closest('.suggest').siblings('.confirm')
 				$el.closest('.suggest').slideUp()
 				confirm.text("Ok, saved it! Thanks.").slideDown()
 				setTimeout((() -> confirm.slideUp() ), 3000)
 			)
 
-	@jump_to_step = (step) ->
-		$('.step' + step).show()
-		$('.step:not(.step' + step + '), .working').hide()
-
-	if "#{@spreadsheet.status}" != "invalid_file"
-		jump_to_step 1
-	else
-		jump_to_step 0
-
-	@this_url = "/spreadsheets/#{@spreadsheet.id}"
-	
-	start_working = (text="Working...") ->
-		$('.working .alert').text(text)
-		$('.working').slideDown()
-	stop_working = () ->
-		$('.working').slideUp()
-
-	@to_step2 = () ->
-		window.field_names = []
-		$('.field-name.btn-info').each(() ->
-			field_names.push $(this).text().trim()
-		)
-
-		if field_names.length > 0
-			
-			console.log "sending field names", field_names
-			start_working("Finding country names in " + field_names.to_sentence() + "...")
-			$('.step1').slideUp(null, null) # () -> $(this).remove())
-			
-			$.get(
-				this_url + "/possible_names",
-				{field_names: field_names}
-				(data) ->
-
-					console.log "received", data
-					start_polling("found_possible_matches", (status) ->
-						$.get(this_url + "/possible_names", (data) ->
-							$('.step2').slideDown()
-							target = $('#matches')
-							target.html("")
-							template_html = $("#match-template").html()
-							for match in data 
-								item = _.template(template_html, match)
-								target.append(item)
-						)
-					)
-
-		
-			)
-
-
-	@to_step3 = () ->
-		window.values_to_iso3 = {}
-		$('.match').each(() ->
-			$el = $(this)
-			value = $el.find('.value').text().trim()
-			iso3 = $el.find('.countries :selected').val()
-			window.values_to_iso3[value] = iso3
-		)
-		$('.step2').slideUp()
-		console.log "mapping:", values_to_iso3, "field names:", field_names
-		$('.step3').slideDown()
-
-
-	@to_step4 = () ->
-		window.codes_to_add = []
-		$('.code.btn-info').each(() ->
-			codes_to_add.push($(this).text().trim())
-		)
-		standardize_data = {
-				field_names: field_names, 
-				values_to_iso3: values_to_iso3,
-				codes_to_add: codes_to_add
-			}
-		$('.step3').slideUp()
-		start_working("Standardizing your spreadsheet and preparing a new file...")
-
-		console.log(standardize_data)
-		$.post(
-			this_url + "/standardize",
-			standardize_data,
-			(data) ->
-				callback = (data) ->
-					$('.step4').slideDown()
-					window.onbeforeunload = () ->
-						$.ajax({
-							async: false,
-							type: "delete",
-							url: this_url
-						})
-						undefined
-
-				start_polling("csv_is_ready", callback)
-		)
-
-	@start_polling = (until_status, callback_function) ->
-		update_status = () ->
-			$.get(this_url + "/status", (data) ->
-				if data.status != until_status	
-					$('.working .alert').text(data.status)
-				else 
-					console.log "Stop polling, data:", data
-					clearInterval(window.check_progress)
-					stop_working()
-					callback_function(data)
-
-			)
-		window.check_progress = setInterval(update_status, 1000)
