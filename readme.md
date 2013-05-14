@@ -134,6 +134,12 @@ Keep track of how much work we've done, and show it to users:
 			human_hours_saved.update_attributes! value: new_time_in_hours
 		end
 		
+		def self.reset!
+			Stat.all.each do |s|
+				s.update_attributes! value: 0
+			end
+		end
+
 		def self.increment_countries_standardized!
 			cs = Stat.find_or_create_by_name("countries_standardized")
 			count = cs.value || 0
@@ -947,6 +953,12 @@ Covenience for populating the database:
 	get "/wipe" do
 		protected!
 		Country.find_each(&:destroy)
+	end
+
+	get "/reset_stats" do
+		protected!
+		Stat.reset!
+		"Stats reset..."
 	end
 
 
