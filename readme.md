@@ -475,7 +475,7 @@ Take some field names (array of strings) and find their unique values:
 				self.field_names = fn
 
 				values = []
-				i = 0
+				i = 0.0
 				CSV.parse(csv_text, headers: true) do |row|
 					i += 1
 					if i % 10 == 0
@@ -514,7 +514,7 @@ Take some field names (array of strings) and find their unique values:
 				thread = Thread.new do
 					values = self.unique_values
 					possible_matches = []
-					i = 0
+					i = 0.0
 					values_length = values.length
 					values.each do |possible_name|
 						i += 1.0
@@ -580,7 +580,7 @@ Shovel in the header:
 
 Then do it for all rows:
 ```Ruby
-						i = 0
+						i = 0.0
 						CSV.parse(csv_text, headers: true) do |row|
 							i +=1
 							if i % 10 == 0
@@ -749,8 +749,9 @@ Endpoint for standardization API:
 			end
 
 			delete do 
+				returns_json
 				@spreadsheet.delete_in_5_minutes!
-				redirect to("/spreadsheets")
+				@spreadsheet.to_json
 			end
 
 			delete "/now" do

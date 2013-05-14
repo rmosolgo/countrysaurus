@@ -97,7 +97,7 @@
 %script#status-template{type: "text/template"}
 	.alert.alert-info
 		.row-fluid
-			%h3 Hard at work!
+			%h3 Countrysaurus is hard at work!
 		.row-fluid
 			.span12
 				%p 
@@ -237,8 +237,9 @@
 
 	SS.SpreadsheetDownloadView = Backbone.Marionette.ItemView.extend(
 		template: "#download-template"
-		events: 
-			"click .download" : "send_delete_request"
+		onRender: ->
+			this.send_delete_request()
+
 		send_delete_request: ->
 			this.model.destroy()
 
@@ -329,7 +330,7 @@
 						view.render()
 					else if status is "found_possible_matches"
 						model.verify_matches()
-					else if status is "csv_is_ready"
+					else if status is "csv_is_ready" or status is "deleting"
 						model.offer_csv()
 
 					else
@@ -369,14 +370,16 @@
 		iso3 = $(el).find('.user_choice').text().trim()
 		alias = $(el).find('.original_value').text().trim()
 		confirm = $el.closest('.suggest').siblings('.confirm')
-		confirm.text("Saving this new name...")
+		confirm.text("Saving this new name...").slideDown()
 
 		$.post(
 			"/countries/" + iso3 + "/aliases",
 			{alias: alias},
 			(data) ->
-				$el.closest('.suggest').slideUp()
-				confirm.text("Ok, saved it! Thanks.").slideDown()
+				
+				confirm.text("Ok, saved it! Thanks.")
 				setTimeout((() -> confirm.slideUp() ), 3000)
 			)
+		# get this far if post is successful - but don't wait for response	
+		$el.closest('.suggest').slideUp()
 
