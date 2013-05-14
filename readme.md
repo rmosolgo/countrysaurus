@@ -260,15 +260,8 @@ Store the aliases WITHOUT special characters:
 			downcased_name = name.downcase 
 			new_aliases = []
 			
-			# "The"
-			countries_with_the = [
-				"Bahamas", "United States", "Sudan", "Ukraine",
-				"United Kingdom", "United Arab Emirates", "Gambia"
-			].map(&:downcase)
-			if countries_with_the.include?(downcased_name)
-				new_aliases << "the #{downcased_name}"
-			end
-
+			# "The ..."
+			new_aliases << "the #{downcased_name}"
 
 			# St. Nevis 
 			if downcased_name =~ /saint/ || downcased_name =~ /st\./
@@ -333,7 +326,7 @@ Standardize with Country.could_be_called(possible_name)
 
 ```Ruby
 			start = Time.new
-			query_name = possible_name.remove_diacritics.downcase 
+			query_name = possible_name.remove_diacritics.downcase.strip 
 
 			matches = []
 			Country.find_each do |country|
