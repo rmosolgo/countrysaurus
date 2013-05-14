@@ -346,10 +346,21 @@ Standardize with Country.could_be_called(possible_name)
 			Country.find_each do |country|
 				is_match = false
 				
+				# first check for real matches
 				country.all_aliases.each do |a|
 					if a == query_name # regex match was doing bad
 						is_match = true
 						break
+					end
+				end
+
+				# then get desperate: check for partial matches
+				if !is_match
+					country.all_aliases.each do |a|
+						if a =~ query_name 
+							is_match = true
+							break
+						end
 					end
 				end
 
