@@ -231,9 +231,9 @@
 		def to_csv
 			
 			csv_text = ""
-			@@canonical_keys.map {|key|
-				csv_text += "\"#{self.send(key)}\""
-			}.join(",")
+			csv_text +=  @@canonical_keys.map {|key|
+						"\"#{self.send(key)}\""
+					}.join(",")
 			csv_text += "\"#{self.aliases.join(";")}\""
 			csv_text += "\n"
 			csv_text
