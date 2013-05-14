@@ -98,6 +98,14 @@ An extra string method -- to remove diacritics:
 	end
 
 ```
+
+Configure __New Relic__:
+```Ruby
+
+	configure :production do
+	  require 'newrelic_rpm'
+	end
+```
 ### Stats 
 
 Keep track of how much work we've done, and show it to users:
