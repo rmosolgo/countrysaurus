@@ -28,7 +28,7 @@
 		console.log(id)
 		$.ajax({
 			type: "Delete",
-			url: "/spreadsheets/" + id,
+			url: "/spreadsheets/" + id + "/now",
 			success: function(data) {location.reload()}
 		})
 	}

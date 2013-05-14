@@ -1,3 +1,4 @@
+
 	# coding: utf-8
 	require 'rubygems'
 	require 'bundler/setup'
@@ -168,7 +169,7 @@
 			# "The"
 			countries_with_the = [
 				"Bahamas", "United States", "Sudan", "Ukraine",
-				"United Kingdom", "United Arab Emirates"
+				"United Kingdom", "United Arab Emirates", "Gambia"
 			].map(&:downcase)
 			if countries_with_the.include?(downcased_name)
 				new_aliases << "the #{downcased_name}"
@@ -339,7 +340,9 @@
 				self.update_attributes! status:  "deleting"
 				Thread.new do
 					sleep(5.mins)
-					self.destroy
+					if self && self.status == 'deleting'	
+						self.destroy
+					end
 				end
 			end
 		end
@@ -602,6 +605,12 @@
 				@spreadsheet.delete_in_5_minutes!
 				redirect to("/spreadsheets")
 			end
+
+			delete "/now" do
+				@spreadsheet.destroy
+				redirect to("/spreadsheets")
+			end
+
 
 
 			get "/unique_values" do
