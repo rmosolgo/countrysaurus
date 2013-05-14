@@ -357,7 +357,7 @@ Standardize with Country.could_be_called(possible_name)
 				# then get desperate: check for partial matches
 				if !is_match
 					country.all_aliases.each do |a|
-						if a =~ query_name 
+						if a =~ /#{query_name}/ 
 							is_match = true
 							break
 						end
