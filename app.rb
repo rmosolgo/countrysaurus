@@ -24,6 +24,9 @@
 				"AAAAAAaaaaaaAaAaAaCcCcCcCcCcDdDdDdEEEEeeeeEeEeEeEeEeGgGgGgGgHhHhIIIIiiiiIiIiIiIiIiJjKkkLlLlLlLlLlNnNnNnNnnNnOOOOOOooooooOoOoOoRrRrRrSsSsSsSssTtTtTtUUUUuuuuUuUuUuUuUuUuWwYyyYyYZzZzZz")
 		end
 	end
+	configure :production do
+	  require 'newrelic_rpm'
+	end
 	class Stat
 		include MongoMapper::Document
 		key :name, String
@@ -41,6 +44,11 @@
 			human_hours_saved.update_attributes! value: new_time_in_hours
 		end
 		
+		def self.reset!
+			Stat.all.each do |s|
+				s.update_attributes! value: 0
+			end
+		end
 		def self.increment_countries_standardized!
 			cs = Stat.find_or_create_by_name("countries_standardized")
 			count = cs.value || 0
@@ -130,14 +138,8 @@
 			downcased_name = name.downcase 
 			new_aliases = []
 			
-			# "The"
-			countries_with_the = [
-				"Bahamas", "United States", "Sudan", "Ukraine",
-				"United Kingdom", "United Arab Emirates", "Gambia"
-			].map(&:downcase)
-			if countries_with_the.include?(downcased_name)
-				new_aliases << "the #{downcased_name}"
-			end
+			# "The ..."
+			new_aliases << "the #{downcased_name}"
 			# St. Nevis 
 			if downcased_name =~ /saint/ || downcased_name =~ /st\./
 				new_aliases << downcased_name.gsub(/saint|st\./, 'st')
@@ -184,7 +186,7 @@
 		end
 		def self.could_be_called(possible_name)
 			start = Time.new
-			query_name = possible_name.remove_diacritics.downcase 
+			query_name = possible_name.remove_diacritics.downcase.strip 
 			matches = []
 			Country.find_each do |country|
 				is_match = false
@@ -609,4 +611,9 @@
 	get "/wipe" do
 		protected!
 		Country.find_each(&:destroy)
+	end
+	get "/reset_stats" do
+		protected!
+		Stat.reset!
+		"Stats reset..."
 	end
