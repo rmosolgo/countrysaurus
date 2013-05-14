@@ -89,6 +89,7 @@ GEM
       activesupport (~> 3.0)
       plucky (~> 0.5.2)
     multi_json (1.7.2)
+    newrelic_rpm (3.6.1.88)
     pg (0.15.1)
     pg (0.15.1-x86-mingw32)
     plucky (0.5.2)
@@ -129,6 +130,7 @@ DEPENDENCIES
   haml
   mongo
   mongo_mapper
+  newrelic_rpm
   pg
   sinatra (~> 1.4.0)
   sinatra-contrib
