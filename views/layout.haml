@@ -1,6 +1,8 @@
 !!!
 %head
+	%meta{name: "viewport", content: "width=device-width, initail-scale=1"}
 	%link{rel: 'stylesheet', href: '/bootstrap/css/bootstrap.min.css'}
+	%link{rel: 'stylesheet', href: "/bootstrap/css/bootstrap-responsive.min.css"}
 	%link{rel: 'stylesheet', href: "/stylesheets/bootstrap-sortable.css" }
 	%script{src: '/javascripts/_ga.js'}
 	%script{src: '/javascripts/jquery.js'}
@@ -41,9 +43,10 @@
 	%title
 		Countrysaurus
 %body
-	%header
-		.container-fluid
-			%nav.navbar.with-shadow
+	
+	.container.page-content.with-shadow
+		%header
+			%nav.navbar
 				.navbar-inner
 					%span.brand
 						Countrysaurus
@@ -107,5 +110,4 @@
 									%strong
 										Human hours saved:
 									= Stat.find_or_initialize_by_name("human_hours_saved").value
-	.page-content.container.with-shadow-offset
 		=yield
