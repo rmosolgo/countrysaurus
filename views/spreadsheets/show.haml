@@ -215,8 +215,11 @@
 			)
 
 		start_working: ->
-			working = new SS.SpreadsheetStatusView({model: this})
-			SS.main_region.show(working)
+			this_model = this
+			setTimeout( ->
+				working = new SS.SpreadsheetStatusView({model: this_model})
+				SS.main_region.show(working)
+			, 500)
 
 		choose_fields: ->
 			fields = new SS.SpreadsheetFieldsView({model: this})
@@ -318,8 +321,6 @@
 		template: "#status-template"
 
 		initialize: ->
-			
-			model = this.model
 			view = this
 			view.interval = setInterval(->
 				view.poll()
