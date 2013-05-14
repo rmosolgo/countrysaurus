@@ -125,10 +125,13 @@ Keep track of how much work we've done, and show it to users:
 			human_hours_saved = Stat.find_or_create_by_name("human_hours_saved")
 
 			new_time_in_seconds = 0
-			# 30 seconds per country?
-			new_time_in_seconds += (countries_standardized * 30)
-			# 1 second per cell
-			new_time_in_seconds += (spreadsheet_cells_served * 1)
+			
+			seconds_per_country = 10
+			new_time_in_seconds += (countries_standardized * seconds_per_country)
+
+
+			seconds_per_cell = 0.5
+			new_time_in_seconds += (spreadsheet_cells_served * seconds_per_cell)
 
 			new_time_in_hours = ((new_time_in_seconds/60)/60).round(2)
 			human_hours_saved.update_attributes! value: new_time_in_hours
