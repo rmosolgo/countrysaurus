@@ -18,10 +18,15 @@
 		.page-content {
 			background-color: rgba(255,255,255, 1);
 			padding: 10px;
-			box-shadow: 0px 20px 30px black;
 
 		}
 
+		.with-shadow {
+			box-shadow: 0px 5px 30px black;
+		}
+		.with-shadow-offset {
+			box-shadow: 0px 20px 30px black;
+		}
 		.modal {
 			width: 800px !important;
 			margin-left: -400px !important;
@@ -38,7 +43,7 @@
 %body
 	%header
 		.container-fluid
-			%nav.navbar
+			%nav.navbar.with-shadow
 				.navbar-inner
 					%span.brand
 						Countrysaurus
@@ -102,5 +107,5 @@
 									%strong
 										Human hours saved:
 									= Stat.find_or_initialize_by_name("human_hours_saved").value
-	.page-content.container
+	.page-content.container.with-shadow-offset
 		=yield

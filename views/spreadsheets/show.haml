@@ -1,3 +1,19 @@
+
+
+.row-fluid
+	.span12
+		%ul.breadcrumb
+			%li
+				%a{href: "/"}
+					Home
+				%span.divider /
+			%li.active
+				Spreadsheets
+				%span.divider /
+			%li.active
+				= @spreadsheet.filename
+
+
 .row-fluid
 	.span12
 		%h2.page-header
