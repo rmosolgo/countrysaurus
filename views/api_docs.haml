@@ -1,0 +1,133 @@
+.row-fluid
+	.span12
+		%ul.breadcrumb
+			%li
+				%a{href: "/"}
+					Home
+				%span.divider /
+			%li.active
+				API Documentation
+				
+.row-fluid
+	.span12
+		%h1.page-header
+			API Documentation
+.row-fluid
+	.span12
+		%h2
+			Standarize API
+		%p
+			To send a string to be standardized, issue an HTTP GET request to 
+			%code 
+				="/standardize"
+
+			with a <code>name</code> parameter. It returns a JSON response of all matched
+			countries. For example:
+.row-fluid
+	.span6.offset3
+		.well
+			%table.table
+				- ["The United Kingdom", "Zaire"].each do |query|
+					%tr
+						%td
+							%code<>
+								GET /standardize?name=
+								= query
+						%td
+							%a{href: "/standardize?name=#{query}"}
+								visit &rarr;
+						-# %td
+							-# %code 
+								-# = JSON.pretty_unparse(Country.could_be_called(query).map(&:serializable_hash))
+.row-fluid
+	.span12
+		%h2
+			Countries and Aliases API
+
+		%h3
+			Countries
+		%p
+			You can <code>GET</code> a JSON response with the country object at  
+			%code 
+				="/countries/{{ISO3 CODE}}/json"
+			= "."
+			For example, 
+			%a{href: "/countries/BEN/json"}
+				Benin
+			or
+			%a{href: "/countries/DZA/json"}
+				Algeria
+			= "."
+
+.row-fluid
+	%h3 Aliases
+	%p
+		You can retreive existing aliases and add to them at 
+		%code 
+			="/countries/{{ISO3 CODE}}/aliases"
+		= "."
+.row-fluid
+	.span12
+		.well
+			%table.table
+				%thead
+					%tr
+						%th
+							Action
+						%th 
+							Request & Path
+						%th 
+							Response
+						%th 
+							Example
+				%tbody
+					%tr
+						%td
+							View aliases
+						%td
+							%code
+								GET /countries/{{ISO3}}/aliases
+						%td 
+							JSON, array of aliases
+						%td
+							%a{href: "/countries/ALA/aliases"}
+								Example: ALA
+					%tr
+						%td
+							Add an alias
+						%td
+							%code
+								POST /countries/{{ISO3}}/aliases
+							%br 
+							including an 
+							%code
+								alias
+							parameter.
+						%td 
+							JSON, array of aliases including the new one.
+						%td
+							Add "Misr" to Egypt:
+							%br
+							%code
+								POST /countries/EGY/aliases?alias=Misr
+					%tr
+						%td
+							Remove an alias
+							%br
+							%span.muted
+								(Requires password)
+						%td
+							%code
+								DELETE /countries/{{ISO3}}/aliases
+							%br 
+							including an 
+							%code
+								alias
+							parameter.
+						%td 
+							JSON, array of aliases after deletion.
+						%td
+							Remove "The UK" from United Kingdom:
+							%br
+							%code
+								DELETE /countries/EGY/aliases?alias=The UK

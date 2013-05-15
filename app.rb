@@ -140,7 +140,9 @@
 			new_aliases = []
 			
 			# "The ..."
-			new_aliases << "the #{downcased_name}"
+			[self.aiddata_name, self.name, self.oecd_name].uniq.each do |n|
+				new_aliases << "the #{n.downcase}"
+			end
 			# St. Nevis 
 			if downcased_name =~ /saint/ || downcased_name =~ /st\./
 				new_aliases << downcased_name.gsub(/saint|st\./, 'st')
@@ -222,7 +224,7 @@
 			if options == nil
 				options = {}
 			end
-			fields_to_show = @@canonical_keys + [:aliases]
+			fields_to_show = @@canonical_keys + [:aliases, :all_aliases]
 			super({only: fields_to_show}.merge(options))
 		end
 		def self.csv_header
@@ -435,6 +437,9 @@
 	get "/" do
 		haml :home
 	end
+	get "/api_documentation" do
+		haml :api_docs
+	end
 	get "/standardize" do
 		returns_json
 		query_name = params[:name]
@@ -567,6 +572,10 @@
 					returns_json 
 					@country.aliases.to_json
 				end
+				get "/all" do
+					returns_json 
+					@country.all_aliases.to_json
+				end
 				post do
 					returns_json
 					# post { alias: "your_alias"}
@@ -623,6 +632,10 @@
 		protected!
 		Country.find_each(&:destroy)
 	end
+	get "/touch_all_countries" do
+		Country.find_each(&:save!)
+	end
+	
 	get "/reset_stats" do
 		protected!
 		Stat.reset!

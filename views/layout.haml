@@ -68,28 +68,9 @@
 								%li
 									%a{href: "/data/sources.zip"}
 										Source CSVs (ZIP file)
-						%li.dropdown
-							%a.dropdown-toggle{"data-toggle" => "dropdown"}
+						%li
+							%a{href: "/api_documentation"}
 								API
-								%b.caret
-							.dropdown-menu{style: "padding:8px;"}
-								%p
-									Make a 
-									%tt 
-										GET
-									request with a
-									%tt
-										name
-									parameter to 
-									%tt
-										= "/standardize"
-
-									, for example, to standardize "Congo":
-									%a{href: "/standardize?name=Congo"}
-										name=congo
-									= "."
-								%p
-									Returns a JSON array of country objects.
 						%li.dropdown
 							%a.dropdown-toggle{"data-toggle" => "dropdown"}
 								Stats

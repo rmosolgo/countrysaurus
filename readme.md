@@ -278,7 +278,9 @@ Store the aliases WITHOUT special characters:
 			new_aliases = []
 			
 			# "The ..."
-			new_aliases << "the #{downcased_name}"
+			[self.aiddata_name, self.name, self.oecd_name].uniq.each do |n|
+				new_aliases << "the #{n.downcase}"
+			end
 
 			# St. Nevis 
 			if downcased_name =~ /saint/ || downcased_name =~ /st\./
@@ -388,7 +390,7 @@ Define the MongoMapper `serializable_hash` method for JSON responses:
 			if options == nil
 				options = {}
 			end
-			fields_to_show = @@canonical_keys + [:aliases]
+			fields_to_show = @@canonical_keys + [:aliases, :all_aliases]
 			super({only: fields_to_show}.merge(options))
 		end
 
@@ -697,6 +699,9 @@ Authorization
 		haml :home
 	end
 
+	get "/api_documentation" do
+		haml :api_docs
+	end
 ```
 
 Endpoint for standardization API:
@@ -901,6 +906,11 @@ Piping for easy access to the country's aliases:
 					@country.aliases.to_json
 				end
 
+				get "/all" do
+					returns_json 
+					@country.all_aliases.to_json
+				end
+
 				post do
 					returns_json
 					# post { alias: "your_alias"}
@@ -969,6 +979,10 @@ Covenience for populating the database:
 		Country.find_each(&:destroy)
 	end
 
+	get "/touch_all_countries" do
+		Country.find_each(&:save!)
+	end
+	
 	get "/reset_stats" do
 		protected!
 		Stat.reset!
