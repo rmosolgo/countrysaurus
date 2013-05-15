@@ -10,6 +10,10 @@
 					%th
 						Length (Chars)
 					%th
+						Created
+					%th 
+						Status
+					%th
 			%tbody
 				- Spreadsheet.find_each do |s|
 					%tr
@@ -19,6 +23,10 @@
 							= s.field_names
 						%td 
 							= s.csv_text.length
+						%td
+							= s.created_at
+						%td
+							= s.status
 						%td
 							%span.btn.btn-danger{onclick: "delete_this_spreadsheet(this)", "data-spreadsheet-id" => s.id }
 								Delete

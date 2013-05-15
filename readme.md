@@ -436,6 +436,7 @@ This is for holding spreadsheets while they're being worked on. I'll dump it whe
 		key :field_names, Array
 		key :unique_values, Array
 		key :possible_names, Array
+		timestamps!
 
 		@@statuses = {
 			deleting: "deleting",
@@ -982,7 +983,7 @@ Covenience for populating the database:
 	get "/touch_all_countries" do
 		Country.find_each(&:save!)
 	end
-	
+
 	get "/reset_stats" do
 		protected!
 		Stat.reset!

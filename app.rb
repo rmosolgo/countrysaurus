@@ -255,6 +255,7 @@
 		key :field_names, Array
 		key :unique_values, Array
 		key :possible_names, Array
+		timestamps!
 		@@statuses = {
 			deleting: "deleting",
 			invalid_file: "invalid_file",
@@ -635,7 +636,6 @@
 	get "/touch_all_countries" do
 		Country.find_each(&:save!)
 	end
-	
 	get "/reset_stats" do
 		protected!
 		Stat.reset!
