@@ -39,7 +39,7 @@
 			
 			seconds_per_country = 10
 			new_time_in_seconds += (countries_standardized * seconds_per_country)
-			seconds_per_cell = 0.5
+			seconds_per_cell = 0.1
 			new_time_in_seconds += (spreadsheet_cells_served * seconds_per_cell)
 			new_time_in_hours = ((new_time_in_seconds/60)/60).round(2)
 			human_hours_saved.update_attributes! value: new_time_in_hours

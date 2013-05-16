@@ -130,7 +130,7 @@ Keep track of how much work we've done, and show it to users:
 			new_time_in_seconds += (countries_standardized * seconds_per_country)
 
 
-			seconds_per_cell = 0.5
+			seconds_per_cell = 0.1
 			new_time_in_seconds += (spreadsheet_cells_served * seconds_per_cell)
 
 			new_time_in_hours = ((new_time_in_seconds/60)/60).round(2)

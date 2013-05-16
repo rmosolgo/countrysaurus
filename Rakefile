@@ -19,6 +19,20 @@ task :run => [:compile] do
 end
 
 
+namespace :github do 
+	desc "Compile and push to github (requires git remote origin)"
+	task :push, [:msg] => [:compile] do |t, args|
+		msg = args.msg || "rake github:push"
+		commit_and_push = [
+			%{git add . },
+			%{git commit -am "#{msg}"},
+			%{git push origin master},
+		]
+		
+		commit_and_push.each{ |cmd| sh cmd}
+	end
+end
+
 namespace :heroku do
 	desc "Compile and Deploy to Heroku (requires git remotes: heroku and origin)"
 	task :deploy, [:msg] => [:compile] do |t, args|
@@ -35,3 +49,9 @@ namespace :heroku do
 	end
 end
 
+desc "Visit self -- for keeping awake"
+task :visit_self do
+	require 'open-uri'
+	app_url = "" # put your Heroku url here
+	open(app_url)
+end
