@@ -91,4 +91,10 @@
 									%strong
 										Human hours saved:
 									= Stat.find_or_initialize_by_name("human_hours_saved").value
+								%li.divider
+								%li.text-info
+									%strong
+										Aliases added:
+									= Stat.find_or_initialize_by_name("aliases_added").value
+
 		=yield

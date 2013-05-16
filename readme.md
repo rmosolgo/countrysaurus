@@ -266,7 +266,7 @@ Store the aliases WITHOUT special characters:
 				new_aliases << value
 			end
 
-			# a few programatic aliases
+			# a few programmatic aliases
 			new_aliases += self.programmatic_aliases
 			
 			# remove spaces, replace with something else

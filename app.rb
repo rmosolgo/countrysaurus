@@ -130,7 +130,7 @@
 				value = value.to_s.remove_diacritics
 				new_aliases << value
 			end
-			# a few programatic aliases
+			# a few programmatic aliases
 			new_aliases += self.programmatic_aliases
 			
 			# remove spaces, replace with something else
