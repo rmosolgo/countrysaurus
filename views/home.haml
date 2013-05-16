@@ -41,12 +41,14 @@
 				%li
 					%p 
 						Countrysaurs will show you its best guesses, and 
-						%a{href: "#", onclick: "example_modal()" }
-							you can change them 
-						(and 
+						you can change them 
+						(
 						%em
-							automatically add your recommendations 
-						to the master database).
+							and 
+							%a{href: "#", onclick: "example_modal()" }
+								automatically add your recommendations 
+							to the master database
+						).
 				%li
 					%p 
 						Choose the codes you want to add for each of your selected fields:
@@ -74,7 +76,7 @@
 		%button.close{type: "button", "data-dismiss" => "modal"}
 			&times;
 		%h3 
-			Example usage
+			Countrysaurus remembers!
 	.modal-body
 		%img{src:"/images/example.jpg"}
 	.modal-footer
