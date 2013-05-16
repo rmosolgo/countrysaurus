@@ -18,7 +18,8 @@
 				- Spreadsheet.find_each do |s|
 					%tr
 						%td
-							= s.filename
+							%a{href: "/spreadsheets/#{s["_id"]}/process"}
+								= s.filename
 						%td 
 							= s.field_names
 						%td 
