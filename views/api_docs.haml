@@ -21,7 +21,7 @@
 			%code 
 				="/standardize"
 
-			with a <code>name</code> parameter. It returns a JSON response of all matched
+			with a <code>query</code> parameter. It returns a JSON response of all matched
 			countries. For example:
 .row-fluid
 	.span6.offset3
@@ -31,14 +31,12 @@
 					%tr
 						%td
 							%code<>
-								GET /standardize?name=
+								GET /standardize?query=
 								= query
 						%td
-							%a{href: "/standardize?name=#{query}"}
+							%a{href: "/standardize?query=#{query}"}
 								visit &rarr;
-						-# %td
-							-# %code 
-								-# = JSON.pretty_unparse(Country.could_be_called(query).map(&:serializable_hash))
+
 .row-fluid
 	.span12
 		%h2

@@ -413,12 +413,21 @@
 		end
 	end
 	helpers do 
-		def returns_json
-			content_type :json
+		def returns_json(serializable_object=nil)
+		    content_type :json
+		    response = ""
+		    if serializable_object
+		    	if serializable_object.respond_to? :to_json
+		    		response = serializable_object.to_json
+		    	else
+		    		response = JSON.dump(serializable_object)
+		    	end
+		    end
+		    response
 		end
 		def returns_csv(filename='data')
-			content_type 'application/csv'
-			attachment "#{filename}.csv"
+		    content_type 'application/csv'
+		    attachment "#{filename}.csv"
 		end
 	# Uncomment and set ENV HTTP_USERNAME and HTTP_PASSWORD to enable password protection with "protected!"
 		def protected!
@@ -442,10 +451,11 @@
 		haml :api_docs
 	end
 	get "/standardize" do
-		returns_json
-		query_name = params[:name]
+		
+		query_name = params[:query]
 		matches = Country.could_be_called(query_name)
-		matches.to_json
+		
+		returns_json(matches)
 	end
 	namespace "/spreadsheets" do 
 		get do 

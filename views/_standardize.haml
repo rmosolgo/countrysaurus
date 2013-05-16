@@ -67,7 +67,7 @@
 		console.log name
 		
 		if name != ""
-			$.get("/standardize", {name: name}, (data) ->
+			$.get("/standardize", {query: name}, (data) ->
 				entry_box.val("")
 				if data.length > 0
 					results = _.template($("#results-template").html(), {countries: data, name: name})

@@ -17,3 +17,14 @@ task :run => [:compile] do
 	sh run_app
 	
 end
+
+
+namespace :heroku do
+	desc "Compile and Deploy to Heroku (requires git remote heroku)"
+	task :deploy, [:msg] => [:compile] do |t, args|
+		msg = args.msg || "rake heroku:deploy"
+		commit_and_deploy = %{git add . && git commit -am "#{msg}" && git push heroku master}
+		sh commit_and_deploy
+	end
+end
+

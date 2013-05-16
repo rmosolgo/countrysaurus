@@ -657,15 +657,35 @@ For :to_json :
 	helpers do 
 ```
 
-syntactic sugar for data:
-```Ruby
-		def returns_json
-			content_type :json
-		end
+Syntactic sugar for data:
 
+```Ruby
+		def returns_json(serializable_object=nil)
+```
+for example, 
+`returns_json(@country)` 
+sends @country.to_json
+
+```Ruby
+		    content_type :json
+		    response = ""
+		    if serializable_object
+		    	if serializable_object.respond_to? :to_json
+		    		response = serializable_object.to_json
+		    	else
+		    		response = JSON.dump(serializable_object)
+		    	end
+		    end
+		    response
+		end
+```
+
+Oops, this one doesn't work that way:
+
+```Ruby
 		def returns_csv(filename='data')
-			content_type 'application/csv'
-			attachment "#{filename}.csv"
+		    content_type 'application/csv'
+		    attachment "#{filename}.csv"
 		end
 ```
 
@@ -709,10 +729,12 @@ Endpoint for standardization API:
 
 ```Ruby
 	get "/standardize" do
-		returns_json
-		query_name = params[:name]
+		
+		query_name = params[:query]
 		matches = Country.could_be_called(query_name)
-		matches.to_json
+		
+		returns_json(matches)
+
 	end
 ```
 
