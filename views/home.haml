@@ -40,7 +40,10 @@
 						Countrysaurus will search for country names.
 				%li
 					%p 
-						Countrysaurs will show you its best guesses, and you can change them (and 
+						Countrysaurs will show you its best guesses, and 
+						%a{href: "#", onclick: "example_modal()" }
+							you can change them 
+						(and 
 						%em
 							automatically add your recommendations 
 						to the master database).
@@ -65,6 +68,18 @@
 			.alert.alert-success
 				%br
 				!= haml :"spreadsheets/_upload"
+
+#example_modal.modal.hide.fade
+	.modal-header
+		%button.close{type: "button", "data-dismiss" => "modal"}
+			&times;
+		%h3 
+			Example usage
+	.modal-body
+		%img{src:"/images/example.jpg"}
+	.modal-footer
+		%button.btn.btn-info{type: "button", "data-dismiss" => "modal"}
+			Close
 
 #excel_modal.modal.hide.fade
 	.modal-header
@@ -137,4 +152,5 @@
 	@google_modal = ->
 		$('#google_modal').modal("show")
 
-					
+	@example_modal = ->
+		$('#example_modal').modal("show")				

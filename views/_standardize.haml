@@ -3,20 +3,25 @@
 	.row-fluid
 		.span12
 			%h4
-				Try the standardizer:
+				Try Countrysaurus:
 	.row-fluid
 		.span12
-			%input.name{type: "text"}
+			%input.name{type: "text", style: "display:block;width:95%;"}
 	.row-fluid
 		.span12
-			%input.btn.btn-info{onclick: "try_standardize()", type:"button", value: "Standardize it!"}
+			%input.btn.btn-info.btn-block{onclick: "try_standardize()", type:"button", value: "Standardize it!"}
+
 	.row-fluid
 		.span12
 			%hr
 
 	.row-fluid
 		.span12#results
-
+	.row-fluid
+		.span6.pull-right
+			%a{href: "/api_documentation"}
+				%i
+					API docs &rarr;
 %script#results-template{type: "text/template"}
 	.row-fluid
 		.alert.alert-success
