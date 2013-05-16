@@ -447,19 +447,6 @@ This is for holding spreadsheets while they're being worked on. I'll dump it whe
 		key :possible_names, Array
 		timestamps!
 
-		@@statuses = {
-			deleting: "deleting",
-			invalid_file: "invalid_file",
-			found_unique_values: "found_unique_values",
-			found_possible_matches: "found_possible_matches",
-			csv_is_ready: "csv_is_ready"
-
-		}
-
-		def self.statuses
-			@@statuses
-		end
-
 		after_create :set_field_names
 		def set_field_names
 			thread = Thread.new do
@@ -478,11 +465,20 @@ This is for holding spreadsheets while they're being worked on. I'll dump it whe
 		end
 
 		def delete_in_5_minutes!
-			if self.status != "deleting"
-				self.update_attributes! status:  "deleting"
+```
+
+If it's being deleted bc invalid file, we have to keep that status to display `spreadsheet/:id/process`
+
+```Ruby
+			if self.status != "deleting" && self.status != "invalid_file"
+				
+				if self.status != "invalid_file"
+					self.update_attributes! status:  "deleting"
+				end
+
 				Thread.new do
 					sleep(5.mins)
-					if self && self.status == 'deleting'	
+					if self && (self.status == 'deleting' || self.status == "invalid_file")
 						self.destroy
 					end
 				end
