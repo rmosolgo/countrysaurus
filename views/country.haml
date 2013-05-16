@@ -56,4 +56,14 @@
 					%form{method: "POST", action:"/countries/#{@country.iso3}/aliases" }
 						%input.new-alias{type: 'text', name: "alias"}
 						%input.btn.btn-success{type: "submit", value: "Save"}
-						
+			.well
+				%h2
+					All Aliases:
+				%p.muted
+					%i
+						Countrysaurus uses under the hood for matching. To give him a new one, use the "Add Alias" button above!
+				%ul.unstyled.inline
+					- @country.all_aliases.each do |a|
+						%li
+							= "#{a}; "
+					

@@ -131,11 +131,20 @@
 				new_aliases << value
 			end
 			# a few programatic aliases
-			new_aliases += self.programatic_aliases
+			new_aliases += self.programmatic_aliases
+			
+			# remove spaces, replace with something else
+			new_aliases.each do |a|
+				if a =~ /\s/ 
+					["", "_", "-", "."].each do |replacer|
+						new_aliases << a.gsub(/\s/, replacer)
+					end
+				end
+			end
 			# save unique, downcased names for matching
 			self.all_aliases = new_aliases.map{|a| a.respond_to?(:downcase) ? a.downcase : a}.uniq
 		end
-		def programatic_aliases
+		def programmatic_aliases
 			downcased_name = name.downcase 
 			new_aliases = []
 			
