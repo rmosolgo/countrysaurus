@@ -16,6 +16,9 @@
 	.span12
 		%h2
 			Standarize API
+.row-fluid
+	.span12
+		%h3 Standardizing one string:
 		%p
 			To send a string to be standardized, issue an HTTP GET request to 
 			%code 
@@ -36,6 +39,29 @@
 						%td
 							%a{href: "/standardize?query=#{query}"}
 								visit &rarr;
+.row-fluid
+	.span12
+		%h3 Standardize many strings:
+		%p
+			To send an array of string to be standardized, issue an HTTP GET request to 
+			%code 
+				="/standardize"
+
+			with a <code>queries</code> parameter. <code>queries</code> should be an array of strings. It returns a JSON response of all matched countries. For example:
+.row-fluid
+	.span6.offset3
+		.well
+			%table.table
+				- ["queries[]=Viet Nam&queries[]=Lao PDR", "queries[]=The United Kingdom&queries[]=日本"].each do |query|
+					%tr
+						%td
+							%code<>
+								GET /standardize?
+								= query
+						%td
+							%a{href: "/standardize?#{query}"}
+								visit &rarr;
+
 
 .row-fluid
 	.span12

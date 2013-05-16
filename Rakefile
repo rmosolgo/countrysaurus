@@ -20,17 +20,18 @@ end
 
 
 namespace :heroku do
-	desc "Compile and Deploy to Heroku (requires git remote heroku)"
+	desc "Compile and Deploy to Heroku (requires git remotes: heroku and origin)"
 	task :deploy, [:msg] => [:compile] do |t, args|
 		msg = args.msg || "rake heroku:deploy"
 		commit_and_deploy = [
 			%{git add . },
 			%{git commit -am "#{msg}"},
+			%{git push origin master},
 			%{git push heroku master}
 		]
 		
 		commit_and_deploy.each{ |cmd| sh cmd}
-		
+
 	end
 end
 

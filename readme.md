@@ -668,15 +668,15 @@ sends @country.to_json
 
 ```Ruby
 		    content_type :json
-		    response = ""
+		    json_response = ""
 		    if serializable_object
 		    	if serializable_object.respond_to? :to_json
-		    		response = serializable_object.to_json
+		    		json_response = serializable_object.to_json
 		    	else
-		    		response = JSON.dump(serializable_object)
+		    		json_response = JSON.dump(serializable_object)
 		    	end
 		    end
-		    response
+		    json_response
 		end
 ```
 
@@ -728,12 +728,46 @@ Authorization
 Endpoint for standardization API:
 
 ```Ruby
-	get "/standardize" do
-		
-		query_name = params[:query]
-		matches = Country.could_be_called(query_name)
-		
-		returns_json(matches)
+	namespace "/standardize" do
+	
+		get do 
+
+```
+`GET /standardize?query=<some string>` 
+
+```	Ruby
+			if query_name = params[:query]
+				response = Country.could_be_called(query_name)				
+				
+```
+
+`GET /standardize/many?queries[][query]=<string>&queries[][query]=<string>`
+
+```Ruby
+
+			elsif queries = params[:queries]
+				response = []
+				unique_queries = []
+
+				queries.each do |this_query|
+```
+I'm only going to return unique ones:
+
+```Ruby
+					if !this_query.blank? && !unique_queries.include?(this_query)
+						unique_queries.push(this_query)
+						matches = Country.could_be_called(this_query)
+						response_obj = {
+							query: this_query,
+							countries: matches
+						}
+						response.push(response_obj)
+					end
+				end
+			end
+			p response
+			returns_json(response || {})
+		end
 
 	end
 ```
