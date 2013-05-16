@@ -287,7 +287,7 @@ Store the aliases WITHOUT special characters:
 			new_aliases = []
 			
 			# "The ..."
-			[self.aiddata_name, self.name, self.oecd_name].uniq.each do |n|
+			([self.aiddata_name, self.name, self.oecd_name] + self.aliases).map(&:downcase).uniq.each do |n|
 				new_aliases << "the #{n.downcase}"
 			end
 
@@ -936,7 +936,8 @@ Access a country at `/countries/:iso3`:
 ```Ruby
 		namespace "/:iso3" do
 			before do
-				@country = Country.find_by_iso3(params[:iso3]) # or whatever
+				iso3 = params[:iso3].upcase
+				@country = Country.find_by_iso3(iso3) # or whatever
 			end
 
 			get { haml :country }
