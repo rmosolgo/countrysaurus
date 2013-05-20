@@ -70,6 +70,14 @@ CODE ```
 	require 'haml' # for quick views
 	require 'barista' # for using :coffescript in Haml
 ```
+Caching via memcachier/dalli:
+
+```Ruby
+	require 'dalli'
+	require 'memcachier'
+	caches = Dalli::Client.new
+	
+```
 
 Back end in Mongo, for fun:
 ```Ruby	
