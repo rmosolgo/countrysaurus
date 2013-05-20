@@ -22,6 +22,7 @@ GEM
       execjs
     coffee-script-source (1.6.2)
     daemons (1.1.9)
+    dalli (2.6.3)
     data_mapper (1.2.0)
       dm-aggregates (~> 1.2.0)
       dm-constraints (~> 1.2.0)
@@ -82,6 +83,7 @@ GEM
     i18n (0.6.1)
     json (1.7.7)
     json_pure (1.7.7)
+    memcachier (0.0.2)
     mongo (1.8.5)
       bson (~> 1.8.5)
     mongo_mapper (0.12.0)
@@ -130,9 +132,11 @@ PLATFORMS
 DEPENDENCIES
   barista
   bson_ext
+  dalli
   data_mapper
   dm-postgres-adapter
   haml
+  memcachier
   mongo
   mongo_mapper
   newrelic_rpm

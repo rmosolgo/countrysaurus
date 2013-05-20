@@ -6,6 +6,10 @@
 	require 'thin' # HTTP server
 	require 'haml' # for quick views
 	require 'barista' # for using :coffescript in Haml
+	require 'dalli'
+	require 'memcachier'
+	caches = Dalli::Client.new
+	
 	# for MongoDB
 	require 'mongo'
 	require 'mongo_mapper'
