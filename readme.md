@@ -75,7 +75,7 @@ Caching via memcachier/dalli:
 ```Ruby
 	require 'dalli'
 	require 'memcachier'
-	caches = Dalli::Client.new
+	CACHES = Dalli::Client.new
 	
 ```
 
@@ -242,7 +242,13 @@ generating `:all_aliases`.
 		timestamps!
 		before_save :remove_duplicate_aliases
 		before_save :combine_fields_to_all_aliases
-		
+		before_save :wipe_cache
+
+		def wipe_cache
+			CACHES.delete("countries")
+			CACHES.delete("countries/#{self.id}")
+		end
+
 
 		@@canonical_keys = [:name] + [
 			:iso2, :iso3, :iso_numeric, 
@@ -354,13 +360,19 @@ Store the aliases WITHOUT special characters:
 
 Standardize with Country.could_be_called(possible_name)
 ```Ruby
-		def self.could_be_called(possible_name)
+		def self.could_be_called(possible_name, options={})
 ```
 
 - Remove diacritics
 - Standardize case
 
 ```Ruby
+			if options["increment_stats"].nil?
+				increment_stats = true
+			else
+				increment_stats = options["increment_stats"]
+			end
+
 			start = Time.new
 			query_name = possible_name.remove_diacritics.downcase.strip 
 
@@ -391,7 +403,7 @@ Standardize with Country.could_be_called(possible_name)
 				end
 			end
 			p "Tried #{possible_name}, found #{matches.length} matches in #{(Time.new - start).round(3)} seconds"
-			if matches.length > 0
+			if matches.length > 0 && increment_stats
 				Stat.increment_countries_standardized!
 			end
 
@@ -454,6 +466,23 @@ This is for holding spreadsheets while they're being worked on. I'll dump it whe
 		key :unique_values, Array
 		key :possible_names, Array
 		timestamps!
+
+		def self.demo
+			
+			unless new_demo = Spreadsheet.find_by_filename("Countrysaurus_Demo")
+
+				new_demo = Spreadsheet.create(
+					filename: "Countrysaurus_Demo", 
+					field_names: ["country", "year"],
+					csv_text: "country,year\nAlgeria,2001\n\"Macedonia, FYR\",2002\n" +
+						"DR Congo,2004\nThe Bahamas,2006\nBahamas,2006\nBahama Is.,2007"
+				)
+
+			end
+
+			new_demo
+		end
+
 
 		after_create :set_field_names
 		def set_field_names
@@ -553,13 +582,19 @@ Take some field names (array of strings) and find their unique values:
 					possible_matches = []
 					i = 0.0
 					values_length = values.length
+					if self.filename == "Countrysaurus_Demo"
+						increment_stats = false
+					else
+						increment_stats = true
+					end
+
 					values.each do |possible_name|
 						i += 1.0
 						self.update_attributes! percent: (i/values_length) * 100
 
 						match = {}
 						match["value"] = possible_name
-						if country = Country.could_be_called(possible_name)[0]
+						if country = Country.could_be_called(possible_name, increment_stats: increment_stats)[0]
 							country_name = country.name
 							country_iso3 = country.iso3
 						else
@@ -589,7 +624,7 @@ Implement standardization:
 
 ```Ruby
 		def standardize!(field_names, codes_to_add, values_to_iso3)
-			p field_names, codes_to_add, values_to_iso3
+			# p field_names, codes_to_add, values_to_iso3
 
 
 			ready = (field_names.length > 0) && (codes_to_add.length > 0) && (values_to_iso3.keys.length > 0)
@@ -641,7 +676,9 @@ Then do it for all rows:
 
 
 					self.update_attributes! new_csv_text: new_csv, status: "csv_is_ready", percent: 100
-					Stat.increment_spreadsheet_cells_served!(cells_to_add)
+					unless self.filename == "Countrysaurus_Demo"
+						Stat.increment_spreadsheet_cells_served!(cells_to_add)
+					end
 				end
 			end
 		end
@@ -778,7 +815,6 @@ I'm only going to return unique ones:
 					end
 				end
 			end
-			p response
 			returns_json(response || {})
 		end
 
@@ -790,6 +826,8 @@ I'm only going to return unique ones:
 ```Ruby
 
 	namespace "/spreadsheets" do 
+
+
 		get do 
 			protected!
 			haml :"spreadsheets/index"
@@ -807,12 +845,17 @@ I'm only going to return unique ones:
 				if tempfile.size <= MAX_FILE_SIZE
 					this_csv_text = tempfile.read
 					this_spreadsheet = Spreadsheet.create(filename: name.gsub(/\.csv$/, ''), csv_text: this_csv_text )
-					p "Ok, saved #{this_spreadsheet.filename}!"
+					# p "Ok, saved #{this_spreadsheet.filename}!"
 					redirect to("/spreadsheets/#{this_spreadsheet.id}/process")
 				else
 					return "Error: that file is too big! Try splitting into multiple files."
 				end
 			end
+		end
+		
+		get '/demo' do
+			ss = Spreadsheet.demo
+			redirect to("/spreadsheets/#{ss.id}/process")
 		end
 
 		namespace "/:id" do 
@@ -833,15 +876,8 @@ I'm only going to return unique ones:
 
 
 			get "/process" do 
+
 				haml :"spreadsheets/show"
-				# 1) User: 			Choose field names
-				# 2) Background: 	Find Unique Values
-				# 3) Background: 	Match those values
-				# 4) User: 			Confirm those matches
-				# 5) User: 			Pick codes to add
-				# 6) Background: 	Create new CSV
-				# 7) User: 			Download CSV
-				# 8) Background: 	Delete CSV in 5 mins
 			end
 
 			delete do 
@@ -916,7 +952,13 @@ Get a country list as HTML or JSON (with `/json`):
 
 ``` Ruby
 		before do
-			@countries = Country.sort(:name).all
+
+			if !CACHES.get('countries')
+				CACHES.set('countries', Country.sort(:name).all)
+			end
+
+			@countries = CACHES.get 'countries'
+				
 		end
 
 		get do 
@@ -1012,7 +1054,7 @@ Covenience for populating the database:
 			require 'csv'
 			initial_codes_file = "public/data/country_codes.csv"
 			CSV.foreach(initial_codes_file, headers: true) do |row|
-				p row.to_s
+				# p row.to_s
 				aliases = []
 				aliases += row["historical_name"].split("; ")
 				aliases += row["historical_iso3"].split("; ")

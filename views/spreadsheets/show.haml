@@ -14,7 +14,7 @@
 				= @spreadsheet.filename
 
 
-.row-fluid
+.row-fluid.ss-header
 	.span12
 		%h2.page-header
 			Standardize Your Spreadsheet
@@ -194,8 +194,20 @@
 	$(->
 		SS.start()
 		# console.log "Started"
-		window.ss = new SS.Spreadsheet({"_id" : "#{@spreadsheet._id}"})
 		fetch_countries()
+		window.is_demo = #{@spreadsheet.filename == "Countrysaurus_Demo" ? true : false}
+		window.ss = new SS.Spreadsheet({"_id" : "#{@spreadsheet.id}"})
+		if is_demo
+			window.ss = new SS.Spreadsheet({"_id" : "demo"})
+			$(".ss-header").after("
+				<div class='row-fluid>'
+				<div class='span12'>
+					<p class='alert alert-warning'>
+						Just a demo --  your changes won't be saved!</p>
+				</div>
+				</div>
+			")
+
 
 	)
 
@@ -219,7 +231,7 @@
 			setTimeout( ->
 				working = new SS.SpreadsheetStatusView({model: this_model})
 				SS.main_region.show(working)
-			, 500)
+			, 800)
 
 		choose_fields: ->
 			fields = new SS.SpreadsheetFieldsView({model: this})
@@ -389,14 +401,21 @@
 		confirm = $el.closest('.suggest').siblings('.confirm')
 		confirm.text("Saving this new name...").slideDown()
 
-		$.post(
-			"/countries/" + iso3 + "/aliases",
-			{alias: alias},
-			(data) ->
-				
-				confirm.text("Ok, saved it! Thanks.")
+		if window.is_demo
+			setTimeout(() ->
+				confirm.text(">> If this wasn't a demo, I would have saved that!")
 				setTimeout((() -> confirm.slideUp() ), 3000)
-			)
+			, 1000)
+		else
+			$.post(
+				"/countries/" + iso3 + "/aliases",
+				{alias: alias},
+				(data) ->
+					
+					confirm.text("Ok, saved it! Thanks.")
+					setTimeout((() -> confirm.slideUp() ), 3000)
+				)
+
 		# get this far if post is successful - but don't wait for response	
 		$el.closest('.suggest').slideUp()
 
