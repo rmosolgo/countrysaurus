@@ -85,12 +85,12 @@
 								%li
 									%strong
 										Countries Standardized:
-									= Stat.find_or_initialize_by_name("countries_standardized").value
+									= Stat.find_or_initialize_by_name("countries_standardized").value.round
 								%li.divider
 								%li
 									%strong
 										Spreadsheet Cells Served:
-									= Stat.find_or_initialize_by_name("spreadsheet_cells_served").value
+									= Stat.find_or_initialize_by_name("spreadsheet_cells_served").value.round
 								%li.divider
 
 								%li.text-success
@@ -101,6 +101,6 @@
 								%li.text-info
 									%strong
 										Aliases added:
-									= Stat.find_or_initialize_by_name("aliases_added").value
+									= Stat.find_or_initialize_by_name("aliases_added").value.round
 
 		=yield
