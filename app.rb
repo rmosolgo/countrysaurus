@@ -327,20 +327,20 @@
 					fn = [fn]
 				end
 				self.field_names = fn
-				values = []
+				possible_values = []
 				i = 0.0
 				CSV.parse(csv_text, headers: true) do |row|
 					i += 1
 					if i % 10 == 0
-						self.update_attributes! percent: (i/self.file_length) * 100
+						self.update_attributes! percent: (i/self.file_length) * 70
 					end
 					fn.each do |field|
-						unless (values.include?(row[field])) || ([nil, ""].include?(row[field]))
-							values << row[field]
-						end
+						# unless (values.include?(row[field])) || ([nil, ""].include?(row[field]))
+							possible_values << row[field]
+						# end
 					end
 				end	
-				values.sort!
+				values = possible_values.uniq.compact.sort
 				self.update_attributes! unique_values: values, status: "found_unique_values", percent: 100
 				
 				if then_find_names
