@@ -82,7 +82,6 @@ class Spreadsheet
 					end
 				end
 			end	
-			values.sort!
 			self.update_attributes! unique_values: values, status: "found_unique_values", percent: 100
 			
 			if then_find_names
