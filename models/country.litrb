@@ -9,7 +9,7 @@
 
 - __What about a missing country all together?__
 
-
+CODE```
 ```Ruby
 	class Country
 		include MongoMapper::Document

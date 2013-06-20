@@ -4,6 +4,7 @@ Keep track of how much work we've done, and show it to users:
 - countries standardized 
 - spreadsheet cells served
 - --> Human hours saved
+CODE```
 
 ```Ruby
 	class Stat

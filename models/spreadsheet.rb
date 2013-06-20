@@ -71,8 +71,14 @@ class Spreadsheet
 					self.update_attributes! percent: (i/self.file_length) * 100
 				end
 				fn.each do |field|
-					unless (values.include?(row[field])) || ([nil, ""].include?(row[field]))
-						values << row[field]
+					this_value = row[field]
+					next if [nil,""].include? this_value
+					next_lesser_item = values.bsearch{|v| v <= this_value}
+					next if next_lesser_item == this_value
+					if next_lesser_item_position = values.index(next_lesser_item)
+						values.insert(next_lesser_item_position, this_value)
+					else
+						values << this_value
 					end
 				end
 			end	

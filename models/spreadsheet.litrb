@@ -2,7 +2,7 @@
 
 This is for holding spreadsheets while they're being worked on. I'll dump it when I'm done
 (to save space, if not to protect privacy...)
-
+CODE```
 ```Ruby
 	MAX_FILE_SIZE = 10485760 # 10 MB in bytes
 	class Spreadsheet
@@ -101,12 +101,20 @@ Take some field names (array of strings) and find their unique values:
 						self.update_attributes! percent: (i/self.file_length) * 100
 					end
 					fn.each do |field|
-						unless (values.include?(row[field])) || ([nil, ""].include?(row[field]))
-							values << row[field]
+						this_value = row[field]
+						next if [nil,""].include? this_value
+
+						next_lesser_item = values.bsearch{|v| v <= this_value}
+						next if next_lesser_item == this_value
+
+						if next_lesser_item_position = values.index(next_lesser_item)
+							values.insert(next_lesser_item_position, this_value)
+						else
+							values << this_value
 						end
+
 					end
 				end	
-				values.sort!
 
 				self.update_attributes! unique_values: values, status: "found_unique_values", percent: 100
 				
