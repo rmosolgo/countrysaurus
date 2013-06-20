@@ -1,0 +1,177 @@
+# compiled from models/country.litrb by literate-ruby
+class Country
+	include MongoMapper::Document
+	# If you add a key, add it to the 
+	# canonical keys, too!
+	key :name, String, required: true, unique: true
+	key :iso2, String
+	key :iso3, String, required: true, unique: true
+	key :iso_numeric, Integer
+	key :aiddata_name, String
+	key :aiddata_code, Integer
+	key :fao_code, Integer
+	key :un_code, Integer
+	key :wb_code, String
+	key :imf_code, Integer
+	key :fips, String
+	key :geonames_id, Integer
+	key :oecd_name, String
+	key :oecd_code, Integer
+	key :cow_numeric, String # since it starts with zeros
+	key :cow_alpha, String
+	key :aliases, Array 
+	key :all_aliases, Array
+	timestamps!
+	before_save :remove_duplicate_aliases
+	before_save :combine_fields_to_all_aliases
+	before_save :wipe_cache
+	def wipe_cache
+		CACHES.delete("countries")
+		CACHES.delete("countries/#{self.id}")
+	end
+	@@canonical_keys = [:name] + [
+		:iso2, :iso3, :iso_numeric, 
+		:aiddata_name, :aiddata_code, 
+		:fao_code, :un_code, :wb_code, :imf_code, :fips,
+		:geonames_id, :oecd_code, :oecd_name, 
+		:cow_numeric, :cow_alpha
+	].sort
+	def self.canonical_keys
+		@@canonical_keys
+	end
+	def remove_duplicate_aliases
+		self.aliases = self.aliases.uniq
+	end
+	def combine_fields_to_all_aliases
+		new_aliases = []
+		new_aliases += aliases
+		@@canonical_keys.each do |key|
+			value = self.send(key)
+			value = value.to_s.remove_diacritics
+			new_aliases << value
+		end
+		# a few programmatic aliases
+		new_aliases += self.programmatic_aliases
+		
+		# remove spaces, replace with something else
+		new_aliases.each do |a|
+			if a =~ /\s/ 
+				["", "_", "-", "."].each do |replacer|
+					new_aliases << a.gsub(/\s/, replacer)
+				end
+			end
+		end
+		# save unique, downcased names for matching
+		self.all_aliases = new_aliases.map{|a| a.respond_to?(:downcase) ? a.downcase : a}.uniq
+	end
+	def programmatic_aliases
+		downcased_name = name.downcase 
+		new_aliases = []
+		
+		# "The ..."
+		([self.aiddata_name, self.name, self.oecd_name] + self.aliases).map(&:downcase).uniq.each do |n|
+			new_aliases << "the #{n.downcase}"
+		end
+		# St. Nevis 
+		if downcased_name =~ /saint/ || downcased_name =~ /st\./
+			new_aliases << downcased_name.gsub(/saint|st\./, 'st')
+			new_aliases << downcased_name.gsub(/saint/, 'st.')
+			new_aliases << downcased_name.gsub(/st\./, 'saint')	
+		end
+		# & // and
+		if downcased_name =~ /and/ || downcased_name =~ /&/
+			new_aliases << downcased_name.gsub(/and|&/, 'and')
+			new_aliases << downcased_name.gsub(/and|&/, '&')
+		end			
+		# Dem. Rep.
+		if downcased_name =~ /republic/ || downcased_name =~ /rep\./
+			new_aliases << downcased_name.gsub(/republic|rep\./, 'rep')
+			new_aliases << downcased_name.gsub(/republic/, 'rep.')
+			new_aliases << downcased_name.gsub(/rep\./, 'republic')
+		end
+		if downcased_name =~ /democratic/ || downcased_name =~ /dem\./
+			new_aliases << downcased_name.gsub(/democratic|dem\./, 'dem')
+			new_aliases << downcased_name.gsub(/democratic/, 'dem.')
+			new_aliases << downcased_name.gsub(/dem\./, 'democratic')				
+		end
+		if (downcased_name =~ /democratic/ || downcased_name =~ /dem\./) &&
+				(downcased_name =~ /republic/ || downcased_name =~ /rep\./)
+			new_aliases << downcased_name.gsub(/democratic|dem\./, 'dem').gsub(/republic|rep\./, 'rep')
+			new_aliases << downcased_name.gsub(/democratic/, 'dem.').gsub(/republic/, 'rep.')
+			new_aliases << downcased_name.gsub(/dem\./, 'democratic').gsub(/rep\./, 'republic')
+		end
+		new_aliases
+	end	
+	def add_alias!(new_alias)
+		unless aliases.include?(new_alias)
+			Stat.increment_aliases_added!
+			aliases << new_alias
+			save 
+		end
+	end
+	def remove_alias!(bad_alias)
+		if aliases.include?(bad_alias)
+			Stat.decrement_aliases_added!
+			aliases.delete(bad_alias)
+			save
+		end
+	end
+	def self.could_be_called(possible_name, options={})
+		if options["increment_stats"].nil?
+			increment_stats = true
+		else
+			increment_stats = options["increment_stats"]
+		end
+		start = Time.new
+		query_name = possible_name.remove_diacritics.downcase.strip 
+		matches = []
+		Country.find_each do |country|
+			is_match = false
+			
+			# first check for real matches
+			country.all_aliases.each do |a|
+				if a == query_name # regex match was doing bad
+					is_match = true
+					break
+				end
+			end
+			# then get desperate: check for partial matches
+			if !is_match
+				country.all_aliases.each do |a|
+					if a =~ /#{query_name}/ 
+						is_match = true
+						break
+					end
+				end
+			end
+			if is_match	
+				matches << country
+			end
+		end
+		p "Tried #{possible_name}, found #{matches.length} matches in #{(Time.new - start).round(3)} seconds"
+		if matches.length > 0 && increment_stats
+			Stat.increment_countries_standardized!
+		end
+		matches
+	end
+	def serializable_hash(options={})
+		if options == nil
+			options = {}
+		end
+		fields_to_show = @@canonical_keys + [:aliases, :all_aliases]
+		super({only: fields_to_show}.merge(options))
+	end
+	def self.csv_header
+		@@canonical_keys.map{|k| k.to_s}.join(",") + ",aliases" + "\n"
+	end
+	def to_csv
+		
+		csv_text = ""
+		csv_text +=  @@canonical_keys.map {|key|
+					"\"#{self.send(key)}\""
+				}.join(",")
+		csv_text += "\"#{self.aliases.join(";")}\""
+		csv_text += "\n"
+		csv_text
+	end
+end

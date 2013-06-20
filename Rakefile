@@ -32,8 +32,8 @@ task :compile do
 			open(filename).each_line do |line|
 				if line[0] == "\t"
 					file.puts line[1..-1]
-				elsif line[0,4] == "    "
-					file.puts line[4..-1]
+				# elsif line[0,4] == "    "
+				# 	file.puts line[4..-1]
 				end
 				# else it's not code!
 			end

@@ -1,0 +1,57 @@
+# compiled from models/stat.litrb by literate-ruby
+class Stat
+	include MongoMapper::Document
+	key :name, String
+	key :value, Float
+	def self.calculate_human_hours_saved!
+		countries_standardized = Stat.find_or_create_by_name("countries_standardized").value || 0
+		spreadsheet_cells_served = Stat.find_or_create_by_name("spreadsheet_cells_served").value || 0
+		human_hours_saved = Stat.find_or_create_by_name("human_hours_saved")
+		new_time_in_seconds = 0
+		
+		seconds_per_country = 10
+		new_time_in_seconds += (countries_standardized * seconds_per_country)
+		seconds_per_cell = 0.1
+		new_time_in_seconds += (spreadsheet_cells_served * seconds_per_cell)
+		new_time_in_hours = ((new_time_in_seconds/60)/60).round(2)
+		human_hours_saved.update_attributes! value: new_time_in_hours
+	end
+	
+	def self.reset!
+		Stat.all.each do |s|
+			s.update_attributes! value: 0
+		end
+	end
+	def self.increment_countries_standardized!
+		cs = Stat.find_or_create_by_name("countries_standardized")
+		count = cs.value || 0
+		count += 1
+		cs.update_attributes! value: count 
+		Stat.calculate_human_hours_saved!
+	end
+	def self.increment_spreadsheet_cells_served!(cells=1)
+		cs = Stat.find_or_create_by_name("spreadsheet_cells_served")
+		count = cs.value || 0
+		count += cells
+		cs.update_attributes! value: count 
+		Stat.calculate_human_hours_saved!
+	end
+	
+	def self.increment_aliases_added!
+		cs = Stat.find_or_create_by_name("aliases_added")
+		count = cs.value || 0
+		count += 1
+		cs.update_attributes! value: count 
+		Stat.calculate_human_hours_saved!
+	end
+	def self.decrement_aliases_added!
+		cs = Stat.find_or_create_by_name("aliases_added")
+		count = cs.value || 0
+		count -= 1
+		if count < 0
+			count = 0
+		end
+		cs.update_attributes! value: count 
+		Stat.calculate_human_hours_saved!
+	end
+end
